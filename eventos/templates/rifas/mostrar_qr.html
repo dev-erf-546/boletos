@@ -1,0 +1,47 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Boleto #{{ boleto.numero }} - {{ boleto.rifa.nombre }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h2 class="mb-0">
+                    <i class="bi bi-check-circle"></i> Boleto validado
+                </h2>
+            </div>
+            <div class="card-body text-center">
+                <h4>Boleto #{{ boleto.numero }}</h4>
+                <p class="lead">{{ boleto.rifa.nombre }}</p>
+                
+                <div class="my-4">
+                    <img src="{{ boleto.qr.imagen_qr.url }}" alt="Código QR" class="img-fluid" style="max-width: 300px;">
+                    <p class="mt-2 text-muted">Presenta este código el día del sorteo</p>
+                </div>
+                
+                <div class="alert alert-info text-start">
+                    <h5><i class="bi bi-info-circle"></i> Instrucciones:</h5>
+                    <ol>
+                        <li>Guarda esta página o descarga la imagen QR</li>
+                        <li>Presenta este código el día del sorteo</li>
+                        <li>El código es personal e intransferible</li>
+                    </ol>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+                    <a href="{% url 'rifas:mis_boletos' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-ticket"></i> Mis boletos
+                    </a>
+                    <button class="btn btn-primary" onclick="window.print()">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer text-center text-muted">
+                <small>Fecha de validación: {{ boleto.qr.fecha_generacion|date:"d/m/Y H:i" }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

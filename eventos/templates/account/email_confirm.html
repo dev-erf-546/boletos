@@ -1,0 +1,32 @@
+{% extends "rifas/base.html" %}
+
+{% block title %}Confirmar Email{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">Confirmación de Email</h2>
+            </div>
+            <div class="card-body text-center">
+                {% if confirmation %}
+                    <p>Por favor confirma que <strong>{{ confirmation.email_address.email }}</strong> es tu dirección de email.</p>
+                    
+                    <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Confirmar
+                        </button>
+                    </form>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <p>Este enlace de confirmación ha expirado o es inválido.</p>
+                        <p>Por favor solicita un <a href="{% url 'account_email' %}">nuevo enlace de confirmación</a>.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

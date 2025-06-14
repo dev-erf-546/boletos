@@ -1,0 +1,49 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Rifas Disponibles{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-5">Rifas Disponibles</h1>
+    </div>
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for rifa in rifas %}
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            {% if rifa.imagen %}
+            <img src="{{ rifa.imagen.url }}" class="card-img-top" alt="{{ rifa.nombre }}" style="height: 200px; object-fit: cover;">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ rifa.nombre }}</h5>
+                <p class="card-text text-muted">
+                    <small>
+                        <i class="bi bi-calendar-event"></i> Sorteo: {{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}
+                    </small>
+                </p>
+                <p class="card-text">{{ rifa.descripcion|truncatechars:100 }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="badge bg-primary rounded-pill">
+                        {{ rifa.boletos_disponibles }} / {{ rifa.boletos_total }} disponibles
+                    </span>
+                    <span class="fw-bold">${{ rifa.precio_boleto }}</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'rifas:detalle_rifa' rifa.id %}" class="btn btn-primary w-100">
+                    Ver detalles <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            No hay rifas disponibles en este momento.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

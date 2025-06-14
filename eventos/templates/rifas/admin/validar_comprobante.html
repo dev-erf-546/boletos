@@ -1,0 +1,146 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Validar Comprobante - Boleto #{{ comprobante.boleto.numero }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>Validar Comprobante</h1>
+        <p class="lead">Boleto #{{ comprobante.boleto.numero }} - {{ comprobante.boleto.rifa.nombre }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h3 class="mb-0">Información del participante</h3>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <strong>Nombre:</strong> {{ comprobante.boleto.participante.nombre_completo }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Teléfono:</strong> {{ comprobante.boleto.participante.telefono }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Email:</strong> {{ comprobante.boleto.participante.email|default:"No especificado" }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Método de contacto:</strong> {{ comprobante.boleto.participante.get_metodo_contacto_display }}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h3 class="mb-0">Comprobante de pago</h3>
+            </div>
+            <div class="card-body text-center">
+                <img src="{{ comprobante.imagen.url }}" class="img-fluid rounded border" 
+                     alt="Comprobante de pago" style="max-height: 400px;">
+                <p class="mt-2 text-muted">
+                    Subido el {{ comprobante.fecha_subida|date:"d/m/Y H:i" }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h3 class="mb-0">Validación</h3>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Estado</label>
+                        <div class="d-flex gap-3">
+                            
+                            {% for choice in form.estado %}
+                            <div class="form-check">
+                                {{ choice.tag }}
+                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                    {{ choice.choice_label }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="motivo-rechazo-container" style="display: none;">
+                        <label for="{{ form.motivo_rechazo.id_for_label }}" class="form-label">
+                            Motivo de rechazo
+                        </label>
+                        {{ form.motivo_rechazo }}
+                        <div class="form-text">
+                            Este mensaje se enviará al participante
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'rifas:comprobantes_pendientes' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Volver
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            // Selecciona los radios de estado - verifica el name real inspeccionando el HTML generado
+            const estadoRadios = document.querySelectorAll('input[name="estado"]');
+            const motivoContainer = document.getElementById('motivo-rechazo-container');
+            
+            if (!estadoRadios.length) {
+                console.warn('No se encontraron radios de estado');
+                return;
+            }
+            
+            if (!motivoContainer) {
+                console.warn('No se encontró el contenedor de motivo de rechazo');
+                return;
+            }
+            
+            function toggleMotivoRechazo() {
+                const radioSeleccionado = Array.from(estadoRadios).find(r => r.checked);
+                if (!radioSeleccionado) return;
+                
+                motivoContainer.style.display = radioSeleccionado.value === 'R' ? 'block' : 'none';
+                
+                // Si necesitas hacer el campo requerido cuando es visible
+                const motivoInput = motivoContainer.querySelector('textarea, input');
+                if (motivoInput) {
+                    motivoInput.required = radioSeleccionado.value === 'R';
+                }
+            }
+            
+            estadoRadios.forEach(radio => {
+                radio.addEventListener('change', toggleMotivoRechazo);
+            });
+            
+            // Inicializar estado
+            toggleMotivoRechazo();
+            
+        } catch (error) {
+            console.error('Error en el script de validación:', error);
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

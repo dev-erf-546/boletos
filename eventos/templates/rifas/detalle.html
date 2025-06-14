@@ -1,0 +1,84 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}{{ rifa.nombre }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>{{ rifa.nombre }}</h1>
+        <p class="lead">{{ rifa.descripcion }}</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <span class="badge bg-primary fs-6">
+            <i class="bi bi-calendar-event"></i> {{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}
+        </span>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        {% if rifa.imagen %}
+        <img src="{{ rifa.imagen.url }}" class="img-fluid rounded shadow" alt="{{ rifa.nombre }}">
+        {% endif %}
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Premio Principal</h3>
+            </div>
+            <div class="card-body">
+                <p class="card-text">{{ rifa.premio_principal }}</p>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">${{ rifa.precio_boleto }}</h5>
+                        <small class="text-muted">Precio por boleto</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-success fs-6">
+                            {{ rifa.boletos_disponibles }} disponibles
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                {% if rifa.boletos_disponibles > 0 %}
+                <a href="{% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary w-100">
+                    Comprar boleto <i class="bi bi-arrow-right"></i>
+                </a>
+                {% else %}
+                <button class="btn btn-secondary w-100" disabled>
+                    Agotado <i class="bi bi-exclamation-circle"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h3 class="mb-0">Detalles del sorteo</h3>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <strong>Fecha de sorteo:</strong> {{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Total de boletos:</strong> {{ rifa.boletos_total }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Boletos vendidos:</strong> {{ rifa.boletos_vendidos }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Método de sorteo:</strong> Sorteo público con notario
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

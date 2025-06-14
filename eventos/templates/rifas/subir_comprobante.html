@@ -1,0 +1,61 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Subir comprobante{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">Subir comprobante de pago</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <h5><i class="bi bi-exclamation-triangle"></i> Importante</h5>
+                    <ul class="mb-0">
+                        <li>Sube una imagen clara de tu comprobante de pago</li>
+                        <li>El comprobante debe incluir fecha, monto y referencia</li>
+                        <li>Tu boleto será validado en un plazo máximo de 24 horas</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Detalles del boleto:</h5>
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <strong>Número:</strong> {{ boleto.numero }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Rifa:</strong> {{ boleto.rifa.nombre }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Precio:</strong> ${{ boleto.rifa.precio_boleto }}
+                        </li>
+                    </ul>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="id_imagen" class="form-label">Comprobante de pago</label>
+                        {{ form.imagen }}
+                        <div class="form-text">
+                            Formatos aceptados: JPG, PNG o PDF (máx. 5MB)
+                        </div>
+                        {% if form.imagen.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.imagen.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-upload"></i> Subir comprobante
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

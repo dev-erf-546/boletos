@@ -1,0 +1,54 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Comprobantes Pendientes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Comprobantes Pendientes</h1>
+    <span class="badge bg-primary rounded-pill">{{ comprobantes.count }} pendientes</span>
+</div>
+
+{% if comprobantes %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Boleto</th>
+                <th>Participante</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for comprobante in comprobantes %}
+            <tr>
+                <td>
+                    <strong>#{{ comprobante.boleto.numero }}</strong><br>
+                    <small>{{ comprobante.boleto.rifa.nombre }}</small>
+                </td>
+                <td>
+                    {{ comprobante.boleto.participante.nombre_completo }}<br>
+                    <small>{{ comprobante.boleto.participante.telefono }}</small>
+                </td>
+                <td>
+                    {{ comprobante.fecha_subida|date:"d/m/Y H:i" }}<br>
+                    <small class="text-muted">{{ comprobante.fecha_subida|timesince }}</small>
+                </td>
+                <td>
+                    <a href="{% url 'rifas:validar_comprobante' comprobante.id %}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> Revisar
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-success">
+    <h4 class="alert-heading">¡Todo al día!</h4>
+    <p>No hay comprobantes pendientes de revisión.</p>
+</div>
+{% endif %}
+{% endblock %}

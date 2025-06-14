@@ -1,0 +1,77 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Mis Boletos{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>Mis Boletos</h1>
+    </div>
+</div>
+
+{% if boletos %}
+<div class="row">
+    <div class="col">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Número</th>
+                        <th>Rifa</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for boleto in boletos %}
+                    <tr>
+                        <td>{{ boleto.numero }}</td>
+                        <td>{{ boleto.rifa.nombre }}</td>
+                        <td>
+                            {% if boleto.estado == 'V' %}
+                            <span class="badge bg-success">Validado</span>
+                            {% elif boleto.estado == 'E' %}
+                            <span class="badge bg-warning text-dark">En validación</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ boleto.get_estado_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ boleto.fecha_venta|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            
+                            {% if boleto.estado == 'V' %}
+                            <a href="{% url 'rifas:mostrar_qr' boleto.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-qr-code"></i> Ver QR
+                            </a>
+                            
+                            {% elif boleto.estado == 'E' and not boleto.comprobante_exists %}
+                            <a href="{% url 'rifas:subir_comprobante' boleto.id %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-upload"></i> Subir comprobante
+                            </a>
+                            {% elif boleto.estado == 'E' %}
+                            <span class="text-muted">En revisión</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col">
+        <div class="alert alert-info">
+            <h4 class="alert-heading">No tienes boletos</h4>
+            <p>Parece que aún no has comprado ningún boleto. Visita nuestro listado de rifas para participar.</p>
+            <hr>
+            <a href="{% url 'rifas:listado_rifas' %}" class="btn btn-primary">
+                Ver rifas disponibles
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

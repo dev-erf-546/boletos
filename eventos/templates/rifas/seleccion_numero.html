@@ -1,0 +1,166 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Seleccionar número - {{ rifa.nombre }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .numero-boleto {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .numero-boleto:hover {
+        transform: scale(1.1);
+    }
+    .numero-boleto.disponible:hover {
+        background-color: #0d6efd;
+        color: white;
+    }
+    .numero-boleto.seleccionado {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+    .numero-boleto.reservado {
+        background-color: #ffc107;
+        cursor: not-allowed;
+    }
+    .numero-boleto.vendido {
+        background-color: #dc3545;
+        color: white;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>Seleccionar número</h1>
+        <p class="lead">Rifa: {{ rifa.nombre }}</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% endif %}
+
+<form method="post" id="form-seleccion">
+    {% csrf_token %}
+    {{ captcha_form }}
+    
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex flex-wrap">
+                {% for boleto in rifa.boletos.all %}
+                <div class="numero-boleto 
+                    {% if boleto.estado == 'D' %}disponible border-primary
+                    {% elif boleto.estado == 'R' %}reservado border-warning
+                    {% else %}vendido border-danger{% endif %}
+                    rounded-circle border text-center"
+                    data-numero="{{ boleto.numero }}"
+                    {% if boleto.estado == 'D' %}onclick="seleccionarNumero(this)"{% endif %}>
+                    {{ boleto.numero }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Números seleccionados</h4>
+                </div>
+                <div class="card-body">
+                    <ul id="lista-seleccionados" class="list-group">
+                        <!-- Aquí se agregarán los números seleccionados -->
+                    </ul>
+                    <input type="hidden" name="numeros" id="numeros-seleccionados">
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Resumen</h4>
+                </div>
+                <div class="card-body">
+                    <p><strong>Rifa:</strong> {{ rifa.nombre }}</p>
+                    <p><strong>Precio por boleto:</strong> ${{ rifa.precio_boleto }}</p>
+                    <p><strong>Total seleccionados:</strong> <span id="total-seleccionados">0</span></p>
+                    <p><strong>Total a pagar:</strong> $<span id="total-pagar">0.00</span></p>
+                    <button type="submit" class="btn btn-primary w-100 mt-3">
+                        Continuar <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% block extra_js %}
+<script>
+    function seleccionarNumero(elemento) {
+        const numero = elemento.getAttribute('data-numero');
+        const lista = document.getElementById('lista-seleccionados');
+        const inputHidden = document.getElementById('numeros-seleccionados');
+        
+        if (elemento.classList.contains('seleccionado')) {
+            // Deseleccionar
+            elemento.classList.remove('seleccionado');
+            const item = document.querySelector(`#lista-seleccionados li[data-numero="${numero}"]`);
+            if (item) item.remove();
+        } else {
+            // Seleccionar
+            elemento.classList.add('seleccionado');
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.setAttribute('data-numero', numero);
+            li.innerHTML = `
+                ${numero}
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deseleccionarNumero('${numero}')">
+                    <i class="bi bi-x"></i>
+                </button>
+            `;
+            lista.appendChild(li);
+        }
+        
+        // Actualizar input hidden
+        const seleccionados = document.querySelectorAll('.numero-boleto.seleccionado');
+        const numeros = Array.from(seleccionados).map(el => el.getAttribute('data-numero'));
+        inputHidden.value = numeros.join(',');
+        
+        // Actualizar totales
+        document.getElementById('total-seleccionados').textContent = numeros.length;
+        document.getElementById('total-pagar').textContent = (numeros.length * {{ rifa.precio_boleto }}).toFixed(2);
+    }
+    
+    function deseleccionarNumero(numero) {
+        const elemento = document.querySelector(`.numero-boleto[data-numero="${numero}"]`);
+        if (elemento) {
+            elemento.classList.remove('seleccionado');
+            const item = document.querySelector(`#lista-seleccionados li[data-numero="${numero}"]`);
+            if (item) item.remove();
+            
+            // Actualizar input hidden
+            const seleccionados = document.querySelectorAll('.numero-boleto.seleccionado');
+            const numeros = Array.from(seleccionados).map(el => el.getAttribute('data-numero'));
+            document.getElementById('numeros-seleccionados').value = numeros.join(',');
+            
+            // Actualizar totales
+            document.getElementById('total-seleccionados').textContent = numeros.length;
+            document.getElementById('total-pagar').textContent = (numeros.length * {{ rifa.precio_boleto }}).toFixed(2);
+        }
+    }
+</script>
+{% endblock %}
+{% endblock %}

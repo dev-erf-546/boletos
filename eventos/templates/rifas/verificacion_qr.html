@@ -1,0 +1,104 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Verificación de QR{% endblock %}
+
+{% block extra_css %}
+<style>
+    #qr-reader {
+        width: 100%;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    #qr-result {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0">Verificación de boletos</h2>
+            </div>
+            <div class="card-body text-center">
+                <div id="qr-reader"></div>
+                <div id="qr-reader-results"></div>
+                
+                <div id="qr-result" class="mt-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 id="result-rifa"></h4>
+                            <p class="mb-1"><strong>Boleto #</strong> <span id="result-numero"></span></p>
+                            <p class="mb-1"><strong>Participante:</strong> <span id="result-participante"></span></p>
+                            <p class="mb-1"><strong>Teléfono:</strong> <span id="result-telefono"></span></p>
+                            <p class="mb-1"><strong>Fecha compra:</strong> <span id="result-fecha"></span></p>
+                            
+                            <div id="result-valid" class="alert alert-success mt-3 mb-0">
+                                <i class="bi bi-check-circle"></i> Boleto válido
+                            </div>
+                            
+                            <div id="result-invalid" class="alert alert-danger mt-3 mb-0" style="display: none;">
+                                <i class="bi bi-exclamation-circle"></i> Boleto no válido
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    function docReady(fn) {
+        if (document.readyState === "complete" || document.readyState === "interactive") {
+            setTimeout(fn, 1);
+        } else {
+            document.addEventListener("DOMContentLoaded", fn);
+        }
+    }
+
+    docReady(function() {
+        const resultContainer = document.getElementById('qr-reader-results');
+        const lastResult = '';
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", { fps: 10, qrbox: 250 });
+        
+        function onScanSuccess(decodedText, decodedResult) {
+            if (decodedText !== lastResult) {
+                lastResult = decodedText;
+                
+                // Ocultar scanner
+                document.getElementById('qr-reader').style.display = 'none';
+                
+                // Mostrar datos del boleto
+                fetch(decodedText)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.valido) {
+                            document.getElementById('result-rifa').textContent = data.rifa.nombre;
+                            document.getElementById('result-numero').textContent = data.numero;
+                            document.getElementById('result-participante').textContent = data.participante.nombre;
+                            document.getElementById('result-telefono').textContent = data.participante.telefono;
+                            document.getElementById('result-fecha').textContent = data.fecha_compra;
+                            
+                            document.getElementById('result-valid').style.display = 'block';
+                            document.getElementById('result-invalid').style.display = 'none';
+                        } else {
+                            document.getElementById('result-valid').style.display = 'none';
+                            document.getElementById('result-invalid').style.display = 'block';
+                        }
+                        
+                        document.getElementById('qr-result').style.display = 'block';
+                    });
+            }
+        }
+        
+        html5QrcodeScanner.render(onScanSuccess);
+    });
+</script>
+{% endblock %}
