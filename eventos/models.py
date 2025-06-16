@@ -8,6 +8,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator, FileExt
 from django.conf import settings
 from django.urls import reverse
 
+#from utils import generar_qr_imagen
+
 class Rifa(models.Model):
     nombre = models.CharField(max_length=100)
     fecha_sorteo = models.DateTimeField()
@@ -75,6 +77,7 @@ class Boleto(models.Model):
     @property
     def comprobante_exists(self):
         return hasattr(self, 'comprobante')
+    
 
 class Participante(models.Model):
     METODO_CONTACTO = (

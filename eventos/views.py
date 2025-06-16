@@ -1,4 +1,6 @@
 import uuid
+from django.db.models import Q
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
@@ -21,7 +23,10 @@ from .forms import (
     ValidarComprobanteForm,
     RifasCaptchaForm
 )
-from .utils import generar_qr_imagen
+
+from .utils import generar_qr_boleto
+
+logger = logging.getLogger(__name__)
 
 class RifaListView(ListView):
     model = Rifa
@@ -195,16 +200,25 @@ class MostrarQRView(LoginRequiredMixin, View):
         })
 
 # Vistas de Administración
+
 class ComprobantesPendientesView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = ComprobantePago
-    template_name = 'rifas/admin/comprobantes_pendientes.html'
+    template_name = 'rifas/admin/comprobantes_pendientes.html'  # Puedes renombrar este template
     context_object_name = 'comprobantes'
-    
+    paginate_by = 20  # Opcional: añade paginación
+
     def test_func(self):
         return self.request.user.is_staff
-    
+
     def get_queryset(self):
-        return ComprobantePago.objects.filter(estado='P').select_related('boleto', 'boleto__participante')
+        # Filtra comprobantes de boletos VENDIDOS (estado 'V')
+        return ComprobantePago.objects.filter(
+            Q(boleto__estado='V') | Q(estado='P')  # Boletos vendidos O comprobantes pendientes
+        ).select_related(
+            'boleto',
+            'boleto__participante',
+            'boleto__rifa'  # Nuevo: para mostrar info de la rifa
+        ).order_by('-fecha_subida')  # Ordena por fecha descendente
 
 
 @method_decorator(staff_member_required, name='dispatch')
@@ -218,15 +232,12 @@ class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView
         return self.request.user.is_staff
     
     def get_object(self, queryset=None):
-        # Asegúrate de obtener el objeto correctamente
         object_id = self.kwargs.get('object_id') or self.kwargs.get('pk')
         return get_object_or_404(ComprobantePago, pk=object_id)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Añade el comprobante al contexto con el nombre que usa tu template
         context['comprobante'] = self.object
-        # Asegúrate de que el boleto y participante estén disponibles
         context['qr_existe'] = hasattr(self.object.boleto, 'qr')
         return context
     
@@ -235,39 +246,51 @@ class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView
         form.instance.fecha_revision = timezone.now()
         
         response = super().form_valid(form)
-        
         boleto = form.instance.boleto
         
         if form.instance.estado == 'A':
             boleto.estado = 'V'
+
+            if not boleto.participante:
+                boleto.participante = form.instance.participante
+
             boleto.save()
             
-            # Generar QR
-            qr, created = QRBoleto.objects.get_or_create(
+            # Generar o actualizar QR - SOLO AQUÍ SE CREA LA INSTANCIA
+            qr_instance, created = QRBoleto.objects.get_or_create(
                 boleto=boleto,
                 defaults={'codigo': str(uuid.uuid4())}
             )
-        
-            if not generar_qr_imagen(qr):
-                messages.error(self.request, "Error generando el código QR")
             
-            # Forzar guardado
-            qr.save()
+            # Generar el QR - PASAMOS LA INSTANCIA DIRECTAMENTE
+            try:
+                if not generar_qr_boleto(qr_instance):  # Cambio clave aquí
+                    messages.error(self.request, "Error generando el boleto con QR")
+                else:
+                    messages.success(self.request, "Boleto aprobado y QR generado correctamente")
+            
+            except Exception as e:
+                logger.error(f"Error generando QR para boleto {boleto.id}: {str(e)}")
+                messages.error(self.request, "Error técnico al generar el QR")
             
             # Notificar al usuario
             Notificacion.objects.create(
                 participante=boleto.participante,
                 tipo='AP',
-                mensaje=f"Tu comprobante para el boleto {boleto.numero} ha sido aprobado.",
+                mensaje=f"Tu comprobante para el boleto {boleto.numero} ha sido aprobado. QR disponible.",
                 boleto=boleto
             )
+            
         else:
             boleto.estado = 'D'
             boleto.participante = None
             boleto.fecha_venta = None
             boleto.save()
             
-            # Notificar al usuario
+            # Eliminar QR si existe
+            if hasattr(boleto, 'qr'):
+                boleto.qr.delete()
+            
             Notificacion.objects.create(
                 participante=form.instance.boleto.participante,
                 tipo='RE',
@@ -276,6 +299,76 @@ class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView
             )
         
         return response
+
+# @method_decorator(staff_member_required, name='dispatch')
+# class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+#     model = ComprobantePago
+#     form_class = ValidarComprobanteForm
+#     template_name = 'rifas/admin/validar_comprobante.html'
+#     success_url = reverse_lazy('rifas:comprobantes_pendientes')
+    
+#     def test_func(self):
+#         return self.request.user.is_staff
+    
+#     def get_object(self, queryset=None):
+#         # Asegúrate de obtener el objeto correctamente
+#         object_id = self.kwargs.get('object_id') or self.kwargs.get('pk')
+#         return get_object_or_404(ComprobantePago, pk=object_id)
+    
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         # Añade el comprobante al contexto con el nombre que usa tu template
+#         context['comprobante'] = self.object
+#         # Asegúrate de que el boleto y participante estén disponibles
+#         context['qr_existe'] = hasattr(self.object.boleto, 'qr')
+#         return context
+    
+#     def form_valid(self, form):
+#         form.instance.revisado_por = self.request.user
+#         form.instance.fecha_revision = timezone.now()
+        
+#         response = super().form_valid(form)
+        
+#         boleto = form.instance.boleto
+        
+#         if form.instance.estado == 'A':
+#             boleto.estado = 'V'
+#             boleto.save()
+            
+#             # Generar QR
+#             qr, created = QRBoleto.objects.get_or_create(
+#                 boleto=boleto,
+#                 defaults={'codigo': str(uuid.uuid4())}
+#             )
+        
+#             if not generar_qr_imagen(qr):
+#                 messages.error(self.request, "Error generando el código QR")
+            
+#             # Forzar guardado
+#             qr.save()
+            
+#             # Notificar al usuario
+#             Notificacion.objects.create(
+#                 participante=boleto.participante,
+#                 tipo='AP',
+#                 mensaje=f"Tu comprobante para el boleto {boleto.numero} ha sido aprobado.",
+#                 boleto=boleto
+#             )
+#         else:
+#             boleto.estado = 'D'
+#             boleto.participante = None
+#             boleto.fecha_venta = None
+#             boleto.save()
+            
+#             # Notificar al usuario
+#             Notificacion.objects.create(
+#                 participante=form.instance.boleto.participante,
+#                 tipo='RE',
+#                 mensaje=f"Tu comprobante para el boleto {boleto.numero} fue rechazado. Motivo: {form.instance.motivo_rechazo}",
+#                 boleto=boleto
+#             )
+        
+#         return response
 
 # API Views
 def verificar_qr(request, codigo_qr):
@@ -321,3 +414,41 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('rifas:listado_rifas')
+
+import os
+import zipfile
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from io import BytesIO
+from eventos.models import Boleto
+
+def descargar_qrs_aprobados(request):
+    # Verificar permisos
+    if not request.user.is_staff:
+        return HttpResponse('No autorizado', status=403)
+    
+    # Obtener boletos vendidos y aprobados
+    boletos = Boleto.objects.filter(
+        estado='V',  # Vendidos
+        comprobante__estado='A'  # Con comprobante aprobado
+    ).select_related('qr').exclude(qr__imagen_qr='')
+    
+    if not boletos.exists():
+        return HttpResponse('No hay QR para descargar', status=404)
+    
+    # Crear ZIP en memoria
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for boleto in boletos:
+            if boleto.qr and boleto.qr.imagen_qr:
+                file_path = boleto.qr.imagen_qr.path
+                if os.path.exists(file_path):
+                    arcname = f"boleto_{boleto.rifa.nombre}_{boleto.numero}.png"
+                    zipf.write(file_path, arcname)
+    
+    buffer.seek(0)
+    
+    # Configurar respuesta
+    response = HttpResponse(buffer, content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="qrs_aprobados.zip"'
+    return response

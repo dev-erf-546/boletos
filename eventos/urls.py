@@ -18,6 +18,7 @@ urlpatterns = [
     # Admin
     path('admin/comprobantes/', views.ComprobantesPendientesView.as_view(), name='comprobantes_pendientes'),
     path('admin/comprobantes/<int:pk>/validar/', views.ValidarComprobanteView.as_view(), name='validar_comprobante'),
+    path('admin/descargar-qrs/', views.descargar_qrs_aprobados, name='descargar_qrs'),
     
     # API
     path('api/verificar-qr/<uuid:codigo_qr>/', views.verificar_qr, name='verificar_qr'),
