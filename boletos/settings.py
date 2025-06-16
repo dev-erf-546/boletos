@@ -148,6 +148,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = '/home/webapps/rifa/static' 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)
 MEDIA_URL = '/storage/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'storage')
