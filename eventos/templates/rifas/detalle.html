@@ -1,4 +1,301 @@
-{% extends 'rifas/base.html' %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rifa 2da Gran Cabalgata</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .search-box {
+            padding: 8px;
+            width: 200px;
+        }
+        .ticket-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .ticket {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .ticket:hover {
+            transform: scale(1.05);
+        }
+        .available {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .sold {
+            background-color: #f8d7da;
+            color: #721c24;
+            text-decoration: line-through;
+        }
+        .reserved {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .selected {
+            background-color: #cce5ff;
+            color: #004085;
+            font-weight: bold;
+            box-shadow: 0 0 0 2px #004085;
+        }
+        .summary {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            position: sticky;
+            bottom: 20px;
+        }
+        .whatsapp-btn {
+            display: inline-block;
+            background-color: #25D366;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #6c757d;
+        }
+        .status-filter {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .filter-btn {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .filter-btn.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Rifa 2da Gran Cabalgata</h1>
+        <p>Selecciona tus números favoritos</p>
+    </div>
+
+    <div class="controls">
+        <input type="text" class="search-box" placeholder="Buscar número..." id="searchBox">
+    </div>
+
+    <h2>Números de la rifa</h2>
+    <div id="loadingMessage" class="loading">Cargando boletos...</div>
+    <div class="ticket-grid" id="ticketGrid"></div>
+
+    <div class="summary">
+        <h3>Resumen</h3>
+        <p><strong>Rifa:</strong> Rifa 2da Gran Cabalgata</p>
+        <p><strong>Precio por boleto:</strong> $<span id="ticketPrice">100.00</span></p>
+        <p><strong>Total seleccionados:</strong> <span id="totalSelected">0</span></p>
+        <p><strong>Total a pagar:</strong> $<span id="totalToPay">0.00</span></p>
+        
+        <a href="#" class="whatsapp-btn" id="whatsappBtn">
+            Comprar por WhatsApp
+        </a>
+    </div>
+    <div id="api-data" data-api-url="{{ api_url }}" style="display: none;"></div>
+
+    <script>
+        // Configuración
+        const whatsappNumber = "529933933115"; // Reemplaza con tu número
+        const apiDataElement = document.getElementById('api-data');
+        const apiEndpoint = apiDataElement.dataset.apiUrl;
+
+        if (!apiDataElement) {
+            console.error('Elemento con datos de API no encontrado');
+            // Puedes definir un valor por defecto o mostrar un mensaje de error
+            const apiEndpoint = '/api/rifas/1/'; // Valor por defecto (deberías manejar esto mejor)
+        } else {
+            const apiEndpoint = apiDataElement.dataset.apiUrl;
+        }
+        
+        // Variables
+        let selectedTickets = [];
+        let allTickets = [];
+        let filteredTickets = [];
+        const ticketsPerPage = 100;
+        let currentPage = 1;
+        
+        // Elementos del DOM
+        const ticketGrid = document.getElementById('ticketGrid');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const searchBox = document.getElementById('searchBox');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchTickets();
+            setupEventListeners();
+        });
+        
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Filtros
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    filterTickets(btn.dataset.status);
+                });
+            });
+            
+            // Búsqueda
+            searchBox.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                filterTickets(document.querySelector('.filter-btn.active').dataset.status, searchTerm);
+            });
+        }
+        
+        // Obtener boletos del backend
+        async function fetchTickets() {
+            try {
+                const response = await fetch(apiEndpoint);
+                if (!response.ok) throw new Error('Error al cargar los boletos');
+                
+                const data = await response.json();
+                
+                // Procesar la respuesta
+                allTickets = data.boletos.map(boleto => ({
+                    id: boleto.id,
+                    numero: boleto.numero,
+                    estatus: boleto.estado === 'D' ? 'disponible' : 
+                            boleto.estado === 'V' ? 'vendido' : 'reservado'
+                }));
+                
+                loadingMessage.style.display = 'none';
+                renderTickets(allTickets);
+                
+                // Actualizar precio desde la API
+                document.getElementById('ticketPrice').textContent = data.rifa.precio_boleto;
+            } catch (error) {
+                console.error('Error:', error);
+                loadingMessage.textContent = 'Error al cargar los boletos. Por favor recarga la página.';
+            }
+        }
+        
+        // Renderizar boletos
+        function renderTickets(tickets) {
+            ticketGrid.innerHTML = '';
+            
+            if (tickets.length === 0) {
+                ticketGrid.innerHTML = '<p>No se encontraron boletos con esos criterios</p>';
+                return;
+            }
+            
+            tickets.forEach(ticket => {
+                const ticketElement = document.createElement('div');
+                ticketElement.className = 'ticket';
+                ticketElement.textContent = ticket.numero;
+                ticketElement.dataset.id = ticket.id;
+                ticketElement.dataset.status = ticket.estatus; // 'disponible', 'vendido', 'reservado'
+                
+                // Estilo según estado
+                if (ticket.estatus === 'vendido') {
+                    ticketElement.classList.add('sold');
+                    ticketElement.title = 'Vendido';
+                } else if (ticket.estatus === 'reservado') {
+                    ticketElement.classList.add('reserved');
+                    ticketElement.title = 'Reservado';
+                } else {
+                    ticketElement.classList.add('available');
+                    ticketElement.title = 'Disponible';
+                    ticketElement.addEventListener('click', () => toggleTicketSelection(ticket));
+                }
+                
+                // Resaltar si está seleccionado
+                if (selectedTickets.some(t => t.id === ticket.id)) {
+                    ticketElement.classList.add('selected');
+                }
+                
+                ticketGrid.appendChild(ticketElement);
+            });
+        }
+        
+        // Filtrar boletos
+        function filterTickets(status, searchTerm = '') {
+            filteredTickets = allTickets.filter(ticket => {
+                const matchesStatus = status === 'all' || ticket.estatus === status;
+                const matchesSearch = ticket.numero.toString().includes(searchTerm);
+                return matchesStatus && matchesSearch;
+            });
+            
+            renderTickets(filteredTickets);
+        }
+        
+        // Seleccionar/deseleccionar boletos
+        function toggleTicketSelection(ticket) {
+            if (ticket.estatus !== 'disponible') return;
+            
+            const index = selectedTickets.findIndex(t => t.id === ticket.id);
+            
+            if (index === -1) {
+                selectedTickets.push(ticket);
+            } else {
+                selectedTickets.splice(index, 1);
+            }
+            
+            updateSummary();
+            renderTickets(filteredTickets); // Para actualizar los estilos
+        }
+        
+        // Actualizar el resumen
+        function updateSummary() {
+            const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
+            const total = selectedTickets.length * ticketPrice;
+            
+            document.getElementById('totalSelected').textContent = selectedTickets.length;
+            document.getElementById('totalToPay').textContent = total.toFixed(2);
+            
+            // Actualizar enlace de WhatsApp
+            const whatsappBtn = document.getElementById('whatsappBtn');
+            const numbers = selectedTickets.map(t => t.numero).join(', ');
+            const message = `Hola, quiero comprar los siguientes boletos de la rifa: ${numbers}`;
+            
+            whatsappBtn.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+            whatsappBtn.style.display = selectedTickets.length > 0 ? 'inline-block' : 'none';
+        }
+    </script>
+</body>
+</html>
+
+
+{% comment %} {% extends 'rifas/base.html' %}
 
 {% block title %}{{ rifa.nombre }}{% endblock %}
 
@@ -79,4 +376,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
+{% endblock %} {% endcomment %}

@@ -89,6 +89,7 @@ class Participante(models.Model):
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     nombre_completo = models.CharField(max_length=150)
+    direccion = models.CharField(max_length=200, null=True, blank=True)
     telefono = models.CharField(max_length=20)
     email = models.EmailField(null=True, blank=True)
     metodo_contacto = models.CharField(max_length=2, choices=METODO_CONTACTO, default='WS')

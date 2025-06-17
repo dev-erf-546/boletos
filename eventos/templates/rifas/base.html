@@ -45,7 +45,7 @@
                         <li><a class="dropdown-item" href="{% url 'account_logout' %}">Cerrar sesión</a></li>
                     </ul>
                 </li>
-                {% else %}
+                {% comment %} {% else %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'account_login' %}">
                         <i class="bi bi-box-arrow-in-right"></i> Ingresar
@@ -55,7 +55,7 @@
                     <a class="nav-link" href="{% url 'account_signup' %}">
                         <i class="bi bi-person-plus"></i> Registrarse
                     </a>
-                </li>
+                </li> {% endcomment %}
                 {% endif %}
             </ul>
         </div>

@@ -1,20 +1,23 @@
 import uuid
+import json
 from django.db.models import Q
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.db import transaction
 from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.http import require_POST
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required, user_passes_test
 
 from .models import Rifa, Boleto, Participante, ComprobantePago, QRBoleto, Notificacion
 from .forms import (
@@ -44,6 +47,7 @@ class RifaDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['boletos_disponibles'] = self.object.boletos_disponibles
+        context['api_url'] = reverse('rifas:rifa-detail-api', args=[str(self.object.id)])
         return context
 
 class SeleccionNumeroView(LoginRequiredMixin, View):
@@ -186,13 +190,13 @@ class MisBoletosView(LoginRequiredMixin, ListView):
             participante__user=self.request.user
         ).order_by('-fecha_venta', 'rifa__fecha_sorteo')
 
-class MostrarQRView(LoginRequiredMixin, View):
+class MostrarQRView(View):
     def get(self, request, boleto_id):
         boleto = get_object_or_404(Boleto, id=boleto_id, participante__user=request.user, estado='V')
         
         if not hasattr(boleto, 'qr'):
             qr = QRBoleto.objects.create(boleto=boleto)
-            qr.imagen_qr = generar_qr_imagen(qr)
+            qr.imagen_qr = generar_qr_boleto(qr)
             qr.save()
         
         return render(request, 'rifas/mostrar_qr.html', {
@@ -299,78 +303,7 @@ class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView
             )
         
         return response
-
-# @method_decorator(staff_member_required, name='dispatch')
-# class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
-#     model = ComprobantePago
-#     form_class = ValidarComprobanteForm
-#     template_name = 'rifas/admin/validar_comprobante.html'
-#     success_url = reverse_lazy('rifas:comprobantes_pendientes')
     
-#     def test_func(self):
-#         return self.request.user.is_staff
-    
-#     def get_object(self, queryset=None):
-#         # Asegúrate de obtener el objeto correctamente
-#         object_id = self.kwargs.get('object_id') or self.kwargs.get('pk')
-#         return get_object_or_404(ComprobantePago, pk=object_id)
-    
-#     def get_context_data(self, **kwargs):
-#         context = super().get_context_data(**kwargs)
-#         # Añade el comprobante al contexto con el nombre que usa tu template
-#         context['comprobante'] = self.object
-#         # Asegúrate de que el boleto y participante estén disponibles
-#         context['qr_existe'] = hasattr(self.object.boleto, 'qr')
-#         return context
-    
-#     def form_valid(self, form):
-#         form.instance.revisado_por = self.request.user
-#         form.instance.fecha_revision = timezone.now()
-        
-#         response = super().form_valid(form)
-        
-#         boleto = form.instance.boleto
-        
-#         if form.instance.estado == 'A':
-#             boleto.estado = 'V'
-#             boleto.save()
-            
-#             # Generar QR
-#             qr, created = QRBoleto.objects.get_or_create(
-#                 boleto=boleto,
-#                 defaults={'codigo': str(uuid.uuid4())}
-#             )
-        
-#             if not generar_qr_imagen(qr):
-#                 messages.error(self.request, "Error generando el código QR")
-            
-#             # Forzar guardado
-#             qr.save()
-            
-#             # Notificar al usuario
-#             Notificacion.objects.create(
-#                 participante=boleto.participante,
-#                 tipo='AP',
-#                 mensaje=f"Tu comprobante para el boleto {boleto.numero} ha sido aprobado.",
-#                 boleto=boleto
-#             )
-#         else:
-#             boleto.estado = 'D'
-#             boleto.participante = None
-#             boleto.fecha_venta = None
-#             boleto.save()
-            
-#             # Notificar al usuario
-#             Notificacion.objects.create(
-#                 participante=form.instance.boleto.participante,
-#                 tipo='RE',
-#                 mensaje=f"Tu comprobante para el boleto {boleto.numero} fue rechazado. Motivo: {form.instance.motivo_rechazo}",
-#                 boleto=boleto
-#             )
-        
-#         return response
-
-# API Views
 def verificar_qr(request, codigo_qr):
     try:
         qr = QRBoleto.objects.get(codigo=codigo_qr, activo=True)
@@ -452,3 +385,188 @@ def descargar_qrs_aprobados(request):
     response = HttpResponse(buffer, content_type='application/zip')
     response['Content-Disposition'] = 'attachment; filename="qrs_aprobados.zip"'
     return response
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminGestionBoletosView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'rifas/admin/gestion_boletos.html'
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rifa_id = self.kwargs.get('rifa_id')
+        context['rifa'] = get_object_or_404(Rifa, pk=rifa_id)
+        
+        # Filtros adicionales
+        numero_inicio = self.request.GET.get('inicio')
+        numero_fin = self.request.GET.get('fin')
+        
+        # Base query con prefetch del QR y participante
+        boletos = Boleto.objects.filter(rifa_id=rifa_id).select_related(
+            'participante'
+        ).prefetch_related(
+            'qr'  # Asume que tienes related_name='qr_boleto' en tu modelo QRBoleto
+        )
+        
+        # Aplicar filtros si existen
+        if numero_inicio and numero_fin:
+            boletos = boletos.filter(numero__gte=numero_inicio, numero__lte=numero_fin)
+        
+        context['boletos'] = boletos.order_by('numero')
+        context['participante_form'] = RegistroParticipanteForm()
+        context['comprobante_form'] = SubirComprobanteForm()
+        
+        return context
+    
+    # def get_context_data(self, **kwargs):
+    #     context = super().get_context_data(**kwargs)
+    #     rifa_id = self.kwargs.get('rifa_id')
+    #     context['rifa'] = get_object_or_404(Rifa, pk=rifa_id)
+        
+    #     # Filtros adicionales
+    #     numero_inicio = self.request.GET.get('inicio')
+    #     numero_fin = self.request.GET.get('fin')
+        
+    #     # Base query
+    #     boletos = Boleto.objects.filter(rifa_id=rifa_id)
+        
+    #     # Aplicar filtros si existen
+    #     if numero_inicio and numero_fin:
+    #         boletos = boletos.filter(numero__gte=numero_inicio, numero__lte=numero_fin)
+        
+    #     context['boletos'] = boletos.order_by('numero')
+    #     context['participante_form'] = RegistroParticipanteForm()
+    #     context['comprobante_form'] = SubirComprobanteForm()
+        
+    #     return context
+    
+@method_decorator(staff_member_required, name='dispatch')
+class AdminAsignarBoletoView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def post(self, request, *args, **kwargs):
+        try:
+            # Procesar FormData
+            boleto_id = request.POST.get('boleto_id')
+            participante_nombre = request.POST.get('participante[nombre]')
+            participante_direccion = request.POST.get('participante[direccion]')
+            participante_telefono = request.POST.get('participante[telefono]')
+            
+            # Validación básica
+            if not all([boleto_id, participante_nombre, participante_telefono]):
+                return JsonResponse({'error': 'Datos incompletos'}, status=400)
+            
+            # Procesar boleto y participante
+            boleto = get_object_or_404(Boleto, pk=boleto_id)
+            
+            participante = Participante.objects.create(
+                direccion=participante_direccion,
+                nombre_completo=participante_nombre,
+                telefono=participante_telefono
+            )
+            
+            # Actualizar boleto
+            boleto.participante = participante
+            boleto.estado = 'V'
+            boleto.fecha_venta = timezone.now()
+            boleto.save()
+            
+            # Procesar comprobante si existe
+            if 'comprobante[archivo]' in request.FILES:
+                comprobante = ComprobantePago(
+                    boleto=boleto,
+                    imagen=request.FILES['comprobante[archivo]'],
+                    #monto=request.POST.get('comprobante[monto]'),
+                    #metodo_pago=request.POST.get('comprobante[metodo_pago]'),
+                    estado='A',
+                    revisado_por=request.user,
+                    fecha_revision=timezone.now()
+                )
+                comprobante.save()
+            
+            # Generar QR
+            qr_instance, created = QRBoleto.objects.get_or_create(
+                boleto=boleto,
+                defaults={'codigo': str(uuid.uuid4())}
+            )
+            generar_qr_boleto(qr_instance)
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Boleto asignado correctamente'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error en asignación: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
+        
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def reservar_boleto(request, boleto_id):
+    try:
+        boleto = Boleto.objects.get(pk=boleto_id)
+        
+        # Verificar que el boleto está disponible
+        if boleto.estado != 'D':
+            return JsonResponse({
+                'success': False,
+                'error': 'Este boleto no está disponible para reserva'
+            }, status=400)
+        
+        # Reservar el boleto
+        boleto.estado = 'R'
+        boleto.fecha_reserva = timezone.now()
+        boleto.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Boleto reservado exitosamente',
+            'boleto_id': boleto.id,
+            'numero': boleto.numero
+        })
+        
+    except Boleto.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Boleto no encontrado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+    
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)  # Solo para staff/admin
+def liberar_boleto(request, boleto_id):
+    try:
+        boleto = Boleto.objects.get(pk=boleto_id, estado='R')
+        
+        # Liberar el boleto
+        boleto.estado = 'D'
+        boleto.participante = None
+        boleto.fecha_reserva = None
+        boleto.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Boleto liberado exitosamente',
+            'boleto_id': boleto.id,
+            'nuevo_estado': 'Disponible'
+        })
+        
+    except Boleto.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Boleto no encontrado o no está reservado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
