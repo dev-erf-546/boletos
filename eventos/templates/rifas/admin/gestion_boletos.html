@@ -1,5 +1,37 @@
 {% extends 'rifas/base.html' %}
-
+{% block extra_css %}
+<style>
+@media (max-width: 768px) {
+    /* Ajustes específicos para móviles */
+    .modal-dialog {
+        margin: 10px auto;
+        max-width: 95%;
+    }
+    
+    .modal-content {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .qr-container {
+        padding: 10px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    /* Botones más grandes en móviles */
+    .modal-footer .btn {
+        padding: 8px 15px;
+        font-size: 16px;
+    }
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="container-fluid">
     <h1 class="mt-4">Gestión de Boletos - {{ rifa.nombre }}</h1>
@@ -124,29 +156,40 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                <!-- Modal para mostrar el QR -->
+                
                 <!-- Modal para QR -->
-<div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Código QR del Boleto</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body text-center">
-          <img id="qrImage" src="" alt="Código QR" class="img-fluid" style="max-width: 100%;">
-          <div class="mt-3">
-            <p><strong>Número:</strong> <span id="boletoNumero"></span></p>
-            <p><strong>Participante:</strong> <span id="participanteNombre"></span></p>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-          <a href="#" id="downloadQr" class="btn btn-primary">Descargar QR</a>
-        </div>
-      </div>
-    </div>
-  </div>
+                <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Código QR del Boleto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <div class="qr-container" style="margin: 0 auto; max-width: 300px;">
+                                    <img id="qrImage" src="" alt="Código QR" class="img-fluid" style="width: 100%;">
+                                </div>
+                                <div class="mt-3">
+                                    <p><strong>Número:</strong> <span id="boletoNumero"></span></p>
+                                    <p><strong>Participante:</strong> <span id="participanteNombre"></span></p>
+                                </div>
+                            </div>
+                            <div class="modal-footer d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                <div>
+                                    <button id="shareQr" class="btn btn-info me-2">
+                                        <i class="bi bi-share"></i> Compartir
+                                    </button>
+                                    <button id="downloadQr" class="btn btn-primary">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fin modal QR -->
             </div>
         </div>
     </div>
@@ -304,46 +347,70 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Verificar que todos los elementos existen
+        // Configuración del modal QR
         const qrModal = document.getElementById('qrModal');
-        if (!qrModal) return;
-      
-        // Configurar el evento del modal
-        qrModal.addEventListener('show.bs.modal', function(event) {
-          try {
-            const button = event.relatedTarget;
-            
-            // Elementos del modal
-            const qrImage = document.getElementById('qrImage');
-            const boletoNumero = document.getElementById('boletoNumero');
-            const participanteNombre = document.getElementById('participanteNombre');
-            const downloadLink = document.getElementById('downloadQr');
-            
-            // Verificar que todos los elementos existen
-            if (!qrImage || !boletoNumero || !participanteNombre || !downloadLink) {
-              console.error('Elementos del modal no encontrados');
-              return;
-            }
-            
-            // Obtener datos del botón que activó el modal
-            const qrUrl = button.getAttribute('data-qr-url');
-            const numero = button.getAttribute('data-boleto-numero');
-            const participante = button.getAttribute('data-participante');
-            
-            // Actualizar el contenido del modal
-            qrImage.src = qrUrl;
-            qrImage.alt = `QR Boleto ${numero}`;
-            boletoNumero.textContent = numero;
-            participanteNombre.textContent = participante || 'No asignado';
-            
-            // Configurar enlace de descarga
-            downloadLink.href = qrUrl;
-            downloadLink.download = `boleto_${numero}_qr.png`;
-            
-          } catch (error) {
-            console.error('Error al mostrar el QR:', error);
-          }
-        });
+        if (qrModal) {
+            qrModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const qrImage = document.getElementById('qrImage');
+                const boletoNumero = document.getElementById('boletoNumero');
+                const participanteNombre = document.getElementById('participanteNombre');
+                const downloadBtn = document.getElementById('downloadQr');
+                const shareBtn = document.getElementById('shareQr');
+                
+                const qrUrl = button.getAttribute('data-qr-url');
+                const numero = button.getAttribute('data-boleto-numero');
+                const participante = button.getAttribute('data-participante');
+                const rifa = button.getAttribute('data-rifa');
+                
+                qrImage.src = qrUrl;
+                boletoNumero.textContent = numero;
+                participanteNombre.textContent = participante || 'No asignado';
+                
+                // Configurar descarga para iOS
+                downloadBtn.onclick = function() {
+                    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                        // Solución alternativa para iOS
+                        const link = document.createElement('a');
+                        link.href = qrUrl;
+                        link.target = '_blank';
+                        link.download = `boleto_${numero}_qr.png`;
+                        
+                        // Necesario para iOS
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Abrir en nueva pestaña como fallback
+                        window.open(qrUrl, '_blank');
+                    } else {
+                        // Descarga normal para otros dispositivos
+                        const link = document.createElement('a');
+                        link.href = qrUrl;
+                        link.download = `boleto_${numero}_qr.png`;
+                        link.click();
+                    }
+                };
+                
+                // Configurar compartir (especialmente útil para móviles)
+                if (navigator.share) {
+                    shareBtn.style.display = 'inline-block';
+                    shareBtn.onclick = async function() {
+                        try {
+                            await navigator.share({
+                                title: `Boleto ${numero} - ${rifa}`,
+                                text: `Boleto número ${numero} para ${participante}`,
+                                url: qrUrl,
+                            });
+                        } catch (err) {
+                            console.log('Error al compartir:', err);
+                        }
+                    };
+                } else {
+                    shareBtn.style.display = 'none';
+                }
+            });
+        }
     });
 
     document.addEventListener('DOMContentLoaded', function() {
