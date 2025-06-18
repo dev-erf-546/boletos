@@ -12,6 +12,34 @@
     <!-- Preconexión para mejorar rendimiento -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    
+    <!-- Estilos específicos para iOS -->
+    <style>
+        /* Prevenir comportamientos no deseados en iOS */
+        @supports (-webkit-touch-callout: none) {
+            body {
+                -webkit-overflow-scrolling: touch;
+                /* Prevenir pull-to-refresh */
+                overscroll-behavior-y: contain;
+            }
+            
+            /* Mejorar rendimiento de modales */
+            .modal {
+                transform: translateZ(0);
+                -webkit-transform: translateZ(0);
+            }
+            
+            /* Prevenir zoom en inputs */
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+        }
+        
+        /* Eliminar highlight azul en botones en iOS */
+        * {
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+    </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
