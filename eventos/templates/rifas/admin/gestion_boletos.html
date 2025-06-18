@@ -1,60 +1,43 @@
 {% extends 'rifas/base.html' %}
 {% block extra_css %}
 <style>
-    /* Estilos específicos para iOS */
-    @supports (-webkit-touch-callout: none) {
-        .modal {
+    /* Estilos específicos para el modal en iOS */
+    @media (max-width: 768px) {
+        #qrModal .modal-content {
             -webkit-overflow-scrolling: touch;
+            overflow-y: auto;
+            max-height: 90vh;
         }
         
-        .modal-content {
-            -webkit-transform: translate3d(0, 0, 0);
+        #qrModal .modal-body {
+            padding: 15px;
         }
         
-        .modal-backdrop {
-            position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 1040;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        
-        #qrContent {
+        #qrContainer {
             -webkit-user-select: none;
             user-select: none;
             -webkit-touch-callout: none;
         }
         
-        #qrImage {
-            -webkit-tap-highlight-color: transparent;
+        /* Prevenir el zoom no deseado en iOS */
+        @supports (-webkit-touch-callout: none) {
+            #qrModal input, 
+            #qrModal textarea, 
+            #qrModal select {
+                font-size: 16px !important;
+            }
         }
     }
     
-    /* Ajustes generales para móviles */
-    @media (max-width: 768px) {
-        .modal-dialog {
-            margin: 10px auto;
-            max-width: 95%;
-        }
-        
-        .modal-content {
-            border-radius: 10px;
-        }
-        
-        .modal-body {
-            padding: 0;
-        }
-        
-        .modal-footer {
-            padding: 15px;
-        }
-        
-        #qrImage {
-            max-height: 60vh;
-            width: auto;
-        }
+    /* Asegurar que los botones sean fácilmente clickeables */
+    #downloadQrBtn, #shareQrBtn {
+        min-width: 120px;
+        padding: 10px 15px;
+    }
+    
+    /* Prevenir el efecto de active en iOS */
+    button, [role="button"] {
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
     }
 </style>
 {% endblock %}
@@ -183,38 +166,33 @@
                     </tbody>
                 </table>
                 
-                <!-- Modal para QR -->
-                
-                <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true" style="display: none;">
+
+                <!-- Modal para QR - Versión mejorada para iOS -->
+                <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
                     <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content" style="overflow: hidden;">
+                        <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title">Código QR del Boleto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
-                            <div class="modal-body text-center p-0">
-                                <div id="qrContent" style="padding: 20px;">
-                                    <img id="qrImage" src="" alt="Código QR" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
+                            <div class="modal-body text-center">
+                                <div id="qrContainer" style="margin: 0 auto; max-width: 300px;">
+                                    <img id="qrImage" src="" alt="Código QR" class="img-fluid" style="width: 100%;">
                                 </div>
-                                <div class="px-3 pb-3">
-                                    <p class="mb-1"><strong>Número:</strong> <span id="boletoNumero"></span></p>
-                                    <p class="mb-1"><strong>Participante:</strong> <span id="participanteNombre"></span></p>
+                                <div class="mt-3">
+                                    <p><strong>Número:</strong> <span id="boletoNumero"></span></p>
+                                    <p><strong>Participante:</strong> <span id="participanteNombre"></span></p>
                                 </div>
                             </div>
-                            <div class="modal-footer d-flex flex-column">
-                                <div class="w-100 d-flex justify-content-between">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                    <div>
-                                        <button id="shareQr" class="btn btn-info me-2">
-                                            <i class="bi bi-share"></i> Compartir
-                                        </button>
-                                        <button id="downloadQr" class="btn btn-primary">
-                                            <i class="bi bi-download"></i> Descargar
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="iosInstructions" class="text-muted small mt-2" style="display: none;">
-                                    <i class="bi bi-info-circle"></i> En iOS, mantén presionado el QR para guardarlo
+                            <div class="modal-footer d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                <div>
+                                    {% comment %} <button id="shareQrBtn" class="btn btn-info me-2">
+                                        <i class="bi bi-share"></i> Compartir
+                                    </button> {% endcomment %}
+                                    <button id="downloadQrBtn" class="btn btn-primary">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -379,41 +357,40 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Configuración del modal QR con manejo especial para iOS
+        // Inicialización del modal
         const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
         let currentQrUrl = '';
         
-        // Delegación de eventos para botones Ver QR
+        // Configuración para botones Ver QR
         document.addEventListener('click', function(e) {
             if (e.target.classList.contains('ver-qr-btn')) {
                 const button = e.target;
                 currentQrUrl = button.getAttribute('data-qr-url');
                 
+                // Actualizar contenido del modal
                 document.getElementById('qrImage').src = currentQrUrl;
                 document.getElementById('boletoNumero').textContent = button.getAttribute('data-boleto-numero');
                 document.getElementById('participanteNombre').textContent = button.getAttribute('data-participante');
                 
-                // Mostrar instrucciones solo en iOS
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                document.getElementById('iosInstructions').style.display = isIOS ? 'block' : 'none';
+                // Mostrar modal
+                qrModal.show();
                 
-                // Mostrar el modal después de un pequeño retraso para iOS
-                setTimeout(() => {
-                    qrModal.show();
-                    
-                    // Solución para el problema de superposición en iOS
-                    if (isIOS) {
-                        document.querySelectorAll('.modal-backdrop').forEach(el => {
-                            el.style.zIndex = '1040'; // Asegurar que está detrás del modal
-                        });
-                        document.getElementById('qrModal').style.zIndex = '1050';
-                    }
-                }, 100);
+                // Solución específica para iOS
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    setTimeout(() => {
+                        // Forzar redibujado para iOS
+                        document.getElementById('qrContainer').style.display = 'none';
+                        document.getElementById('qrContainer').offsetHeight; // Trigger reflow
+                        document.getElementById('qrContainer').style.display = 'block';
+                    }, 100);
+                }
             }
         });
         
-        // Manejo de la descarga
-        document.getElementById('downloadQr').addEventListener('click', function() {
+        // Configurar botón de descarga
+        document.getElementById('downloadQrBtn').addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevenir cierre del modal
+            
             if (!currentQrUrl) return;
             
             const numero = document.getElementById('boletoNumero').textContent;
@@ -426,14 +403,12 @@
                 link.target = '_blank';
                 link.download = filename;
                 
-                // Necesario para iOS
                 document.body.appendChild(link);
-                const event = new MouseEvent('click');
-                link.dispatchEvent(event);
+                link.click();
                 document.body.removeChild(link);
                 
-                // Abrir en nueva pestaña como fallback
-                window.open(currentQrUrl, '_blank');
+                // Mensaje instructivo para iOS
+                alert('En iOS, mantén presionada la imagen QR y selecciona "Guardar imagen"');
             } else {
                 // Descarga normal para otros dispositivos
                 const link = document.createElement('a');
@@ -443,8 +418,10 @@
             }
         });
         
-        // Manejo de compartir
-        document.getElementById('shareQr').addEventListener('click', async function() {
+        // Configurar botón de compartir
+        document.getElementById('shareQrBtn').addEventListener('click', async function(e) {
+            e.stopPropagation(); // Prevenir cierre del modal
+            
             if (!currentQrUrl) return;
             
             const numero = document.getElementById('boletoNumero').textContent;
@@ -459,6 +436,10 @@
                     });
                 } catch (err) {
                     console.log('Error al compartir:', err);
+                    // Fallback para cuando se cancela el compartir
+                    if (err.name !== 'AbortError') {
+                        alert('Puedes copiar este enlace para compartir: ' + currentQrUrl);
+                    }
                 }
             } else {
                 // Fallback para navegadores sin API de compartir
@@ -466,13 +447,17 @@
             }
         });
         
-        // Solución adicional para el fondo gris en iOS
-        document.addEventListener('touchstart', function(e) {
-            if (e.target.classList.contains('modal-backdrop')) {
-                e.preventDefault();
+        // Solución definitiva para el cierre accidental en iOS
+        document.getElementById('qrModal').addEventListener('click', function(e) {
+            e.stopPropagation(); // Evitar que clicks dentro del modal lo cierran
+        });
+        
+        // Manejar el backdrop manualmente para iOS
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.addEventListener('click', function() {
                 qrModal.hide();
-            }
-        }, { passive: false });
+            });
+        });
     });
 
     document.addEventListener('DOMContentLoaded', function() {
