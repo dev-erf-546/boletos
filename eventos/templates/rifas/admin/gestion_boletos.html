@@ -1,35 +1,61 @@
 {% extends 'rifas/base.html' %}
 {% block extra_css %}
 <style>
-@media (max-width: 768px) {
-    /* Ajustes específicos para móviles */
-    .modal-dialog {
-        margin: 10px auto;
-        max-width: 95%;
+    /* Estilos específicos para iOS */
+    @supports (-webkit-touch-callout: none) {
+        .modal {
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .modal-content {
+            -webkit-transform: translate3d(0, 0, 0);
+        }
+        
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 1040;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        #qrContent {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        
+        #qrImage {
+            -webkit-tap-highlight-color: transparent;
+        }
     }
     
-    .modal-content {
-        border-radius: 10px;
-        overflow: hidden;
+    /* Ajustes generales para móviles */
+    @media (max-width: 768px) {
+        .modal-dialog {
+            margin: 10px auto;
+            max-width: 95%;
+        }
+        
+        .modal-content {
+            border-radius: 10px;
+        }
+        
+        .modal-body {
+            padding: 0;
+        }
+        
+        .modal-footer {
+            padding: 15px;
+        }
+        
+        #qrImage {
+            max-height: 60vh;
+            width: auto;
+        }
     }
-    
-    .modal-body {
-        padding: 15px;
-    }
-    
-    .qr-container {
-        padding: 10px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    
-    /* Botones más grandes en móviles */
-    .modal-footer .btn {
-        padding: 8px 15px;
-        font-size: 16px;
-    }
-}
 </style>
 {% endblock %}
 {% block content %}
@@ -158,31 +184,37 @@
                 </table>
                 
                 <!-- Modal para QR -->
-                <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+                
+                <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true" style="display: none;">
                     <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
+                        <div class="modal-content" style="overflow: hidden;">
                             <div class="modal-header">
                                 <h5 class="modal-title">Código QR del Boleto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
-                            <div class="modal-body text-center">
-                                <div class="qr-container" style="margin: 0 auto; max-width: 300px;">
-                                    <img id="qrImage" src="" alt="Código QR" class="img-fluid" style="width: 100%;">
+                            <div class="modal-body text-center p-0">
+                                <div id="qrContent" style="padding: 20px;">
+                                    <img id="qrImage" src="" alt="Código QR" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
                                 </div>
-                                <div class="mt-3">
-                                    <p><strong>Número:</strong> <span id="boletoNumero"></span></p>
-                                    <p><strong>Participante:</strong> <span id="participanteNombre"></span></p>
+                                <div class="px-3 pb-3">
+                                    <p class="mb-1"><strong>Número:</strong> <span id="boletoNumero"></span></p>
+                                    <p class="mb-1"><strong>Participante:</strong> <span id="participanteNombre"></span></p>
                                 </div>
                             </div>
-                            <div class="modal-footer d-flex justify-content-between">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                <div>
-                                    <button id="shareQr" class="btn btn-info me-2">
-                                        <i class="bi bi-share"></i> Compartir
-                                    </button>
-                                    <button id="downloadQr" class="btn btn-primary">
-                                        <i class="bi bi-download"></i> Descargar
-                                    </button>
+                            <div class="modal-footer d-flex flex-column">
+                                <div class="w-100 d-flex justify-content-between">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                    <div>
+                                        <button id="shareQr" class="btn btn-info me-2">
+                                            <i class="bi bi-share"></i> Compartir
+                                        </button>
+                                        <button id="downloadQr" class="btn btn-primary">
+                                            <i class="bi bi-download"></i> Descargar
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="iosInstructions" class="text-muted small mt-2" style="display: none;">
+                                    <i class="bi bi-info-circle"></i> En iOS, mantén presionado el QR para guardarlo
                                 </div>
                             </div>
                         </div>
@@ -347,70 +379,100 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Configuración del modal QR
-        const qrModal = document.getElementById('qrModal');
-        if (qrModal) {
-            qrModal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                const qrImage = document.getElementById('qrImage');
-                const boletoNumero = document.getElementById('boletoNumero');
-                const participanteNombre = document.getElementById('participanteNombre');
-                const downloadBtn = document.getElementById('downloadQr');
-                const shareBtn = document.getElementById('shareQr');
+        // Configuración del modal QR con manejo especial para iOS
+        const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
+        let currentQrUrl = '';
+        
+        // Delegación de eventos para botones Ver QR
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('ver-qr-btn')) {
+                const button = e.target;
+                currentQrUrl = button.getAttribute('data-qr-url');
                 
-                const qrUrl = button.getAttribute('data-qr-url');
-                const numero = button.getAttribute('data-boleto-numero');
-                const participante = button.getAttribute('data-participante');
-                const rifa = button.getAttribute('data-rifa');
+                document.getElementById('qrImage').src = currentQrUrl;
+                document.getElementById('boletoNumero').textContent = button.getAttribute('data-boleto-numero');
+                document.getElementById('participanteNombre').textContent = button.getAttribute('data-participante');
                 
-                qrImage.src = qrUrl;
-                boletoNumero.textContent = numero;
-                participanteNombre.textContent = participante || 'No asignado';
+                // Mostrar instrucciones solo en iOS
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                document.getElementById('iosInstructions').style.display = isIOS ? 'block' : 'none';
                 
-                // Configurar descarga para iOS
-                downloadBtn.onclick = function() {
-                    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                        // Solución alternativa para iOS
-                        const link = document.createElement('a');
-                        link.href = qrUrl;
-                        link.target = '_blank';
-                        link.download = `boleto_${numero}_qr.png`;
-                        
-                        // Necesario para iOS
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        
-                        // Abrir en nueva pestaña como fallback
-                        window.open(qrUrl, '_blank');
-                    } else {
-                        // Descarga normal para otros dispositivos
-                        const link = document.createElement('a');
-                        link.href = qrUrl;
-                        link.download = `boleto_${numero}_qr.png`;
-                        link.click();
+                // Mostrar el modal después de un pequeño retraso para iOS
+                setTimeout(() => {
+                    qrModal.show();
+                    
+                    // Solución para el problema de superposición en iOS
+                    if (isIOS) {
+                        document.querySelectorAll('.modal-backdrop').forEach(el => {
+                            el.style.zIndex = '1040'; // Asegurar que está detrás del modal
+                        });
+                        document.getElementById('qrModal').style.zIndex = '1050';
                     }
-                };
+                }, 100);
+            }
+        });
+        
+        // Manejo de la descarga
+        document.getElementById('downloadQr').addEventListener('click', function() {
+            if (!currentQrUrl) return;
+            
+            const numero = document.getElementById('boletoNumero').textContent;
+            const filename = `boleto_${numero}_qr.png`;
+            
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                // Solución alternativa para iOS
+                const link = document.createElement('a');
+                link.href = currentQrUrl;
+                link.target = '_blank';
+                link.download = filename;
                 
-                // Configurar compartir (especialmente útil para móviles)
-                if (navigator.share) {
-                    shareBtn.style.display = 'inline-block';
-                    shareBtn.onclick = async function() {
-                        try {
-                            await navigator.share({
-                                title: `Boleto ${numero} - ${rifa}`,
-                                text: `Boleto número ${numero} para ${participante}`,
-                                url: qrUrl,
-                            });
-                        } catch (err) {
-                            console.log('Error al compartir:', err);
-                        }
-                    };
-                } else {
-                    shareBtn.style.display = 'none';
+                // Necesario para iOS
+                document.body.appendChild(link);
+                const event = new MouseEvent('click');
+                link.dispatchEvent(event);
+                document.body.removeChild(link);
+                
+                // Abrir en nueva pestaña como fallback
+                window.open(currentQrUrl, '_blank');
+            } else {
+                // Descarga normal para otros dispositivos
+                const link = document.createElement('a');
+                link.href = currentQrUrl;
+                link.download = filename;
+                link.click();
+            }
+        });
+        
+        // Manejo de compartir
+        document.getElementById('shareQr').addEventListener('click', async function() {
+            if (!currentQrUrl) return;
+            
+            const numero = document.getElementById('boletoNumero').textContent;
+            const participante = document.getElementById('participanteNombre').textContent;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `Boleto ${numero}`,
+                        text: `Boleto de rifa número ${numero} para ${participante}`,
+                        url: currentQrUrl,
+                    });
+                } catch (err) {
+                    console.log('Error al compartir:', err);
                 }
-            });
-        }
+            } else {
+                // Fallback para navegadores sin API de compartir
+                alert('Copie este enlace para compartir: ' + currentQrUrl);
+            }
+        });
+        
+        // Solución adicional para el fondo gris en iOS
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.classList.contains('modal-backdrop')) {
+                e.preventDefault();
+                qrModal.hide();
+            }
+        }, { passive: false });
     });
 
     document.addEventListener('DOMContentLoaded', function() {
