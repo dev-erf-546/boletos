@@ -363,7 +363,6 @@ def descargar_qrs_aprobados(request):
     # Obtener boletos vendidos y aprobados
     boletos = Boleto.objects.filter(
         estado='V',  # Vendidos
-        comprobante__estado='A'  # Con comprobante aprobado
     ).select_related('qr').exclude(qr__imagen_qr='')
     
     if not boletos.exists():
