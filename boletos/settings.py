@@ -150,7 +150,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = '/home/webapps/rifa/static' 
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static_extra'),)
+# Solo agregar static_extra si el directorio existe
+static_extra_dir = os.path.join(BASE_DIR, 'static_extra')
+STATICFILES_DIRS = [static_extra_dir] if os.path.exists(static_extra_dir) else []
 MEDIA_URL = '/storage/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'storage')
 
@@ -176,15 +178,47 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-# Configuración de allauth
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # Permite login con usuario o email
-ACCOUNT_EMAIL_REQUIRED = False  # Requiere email para registro
+# Configuración de allauth (versión actualizada - sin deprecaciones)
+# Métodos de login permitidos: username, email, o ambos
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}  # Permite login con usuario o email
+
+# Campos en el formulario de registro (los campos con * son requeridos)
+# Formato: ['campo1', 'campo2*', 'campo3*'] donde * indica requerido
+ACCOUNT_SIGNUP_FIELDS = ['email', 'username*', 'password1*', 'password2*']
+
+# Verificación de email
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # 'mandatory' o 'optional'
+
+# Cerrar sesión con GET
 ACCOUNT_LOGOUT_ON_GET = True  # Cierra sesión con solo visitar /accounts/logout/
-ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True  # Pide confirmación de contraseña
+
+# URLs de redirección
 LOGIN_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del login (fallback)
 LOGOUT_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del logout
-ACCOUNT_ADAPTER = 'eventos.adapters.CustomAccountAdapter'  # Adaptador personalizado para redirección
+
+# Adaptador personalizado para redirección
+ACCOUNT_ADAPTER = 'eventos.adapters.CustomAccountAdapter'
+
+# Configuración de seguridad para producción
+if not DEBUG:
+    # CSRF
+    CSRF_COOKIE_SECURE = True  # Solo enviar cookies CSRF sobre HTTPS
+    CSRF_COOKIE_HTTPONLY = True
+    CSRF_TRUSTED_ORIGINS = [
+        'https://boletos.pulsarmex.com',
+        'https://www.boletos.pulsarmex.com',
+    ]
+    
+    # Cookies de sesión
+    SESSION_COOKIE_SECURE = True  # Solo enviar cookies de sesión sobre HTTPS
+    SESSION_COOKIE_HTTPONLY = True
+    
+    # Seguridad adicional
+    SECURE_SSL_REDIRECT = False  # Desactivar si usas un proxy reverso (nginx/apache)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 
 # settings.py (versión segura para producción)
