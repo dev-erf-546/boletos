@@ -1,0 +1,178 @@
+{% extends 'rifas/admin/base_admin.html' %}
+
+{% block title %}{{ rifa.nombre }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-ticket-perforated"></i> {{ rifa.nombre }}</h1>
+    <div class="btn-group">
+        <a href="{% url 'rifas:admin_rifa_edit' rifa.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Editar
+        </a>
+        <a href="{% url 'rifas:admin_gestion_boletos' rifa.pk %}" class="btn btn-success">
+            <i class="bi bi-list-check"></i> Gestionar Boletos
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Información Principal -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Información de la Rifa</h5>
+            </div>
+            <div class="card-body">
+                {% if rifa.imagen %}
+                <div class="mb-3 text-center">
+                    <img src="{{ rifa.imagen.url }}" alt="{{ rifa.nombre }}" 
+                         class="img-fluid rounded" style="max-height: 300px;">
+                </div>
+                {% endif %}
+                
+                <table class="table">
+                    <tr>
+                        <th width="200">Nombre:</th>
+                        <td>{{ rifa.nombre }}</td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Sorteo:</th>
+                        <td>{{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Precio por Boleto:</th>
+                        <td>${{ rifa.precio_boleto|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Total de Boletos:</th>
+                        <td>{{ rifa.boletos_total }}</td>
+                    </tr>
+                    <tr>
+                        <th>Estado:</th>
+                        <td>
+                            {% if rifa.activa %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Creación:</th>
+                        <td>{{ rifa.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% if rifa.premio_principal %}
+                    <tr>
+                        <th>Premio Principal:</th>
+                        <td>{{ rifa.premio_principal }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if rifa.descripcion %}
+                    <tr>
+                        <th>Descripción:</th>
+                        <td>{{ rifa.descripcion|linebreaks }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Estadísticas</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Boletos Vendidos</span>
+                        <strong class="text-success">{{ boletos_vendidos }}</strong>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {% widthratio boletos_vendidos rifa.boletos_total 100 %}%">
+                            {% widthratio boletos_vendidos rifa.boletos_total 100 %}%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Boletos Reservados</span>
+                        <strong class="text-warning">{{ boletos_reservados }}</strong>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-warning" role="progressbar" 
+                             style="width: {% widthratio boletos_reservados rifa.boletos_total 100 %}%">
+                            {% widthratio boletos_reservados rifa.boletos_total 100 %}%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Boletos Disponibles</span>
+                        <strong class="text-secondary">{{ boletos_disponibles }}</strong>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-secondary" role="progressbar" 
+                             style="width: {% widthratio boletos_disponibles rifa.boletos_total 100 %}%">
+                            {% widthratio boletos_disponibles rifa.boletos_total 100 %}%
+                        </div>
+                    </div>
+                </div>
+                
+                {% if boletos_validacion > 0 %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>En Validación</span>
+                        <strong class="text-info">{{ boletos_validacion }}</strong>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <hr>
+                
+                <div class="text-center">
+                    <h4 class="text-primary">${{ ingresos_totales|floatformat:2 }}</h4>
+                    <small class="text-muted">Ingresos Totales</small>
+                </div>
+                
+                {% if comprobantes_pendientes > 0 %}
+                <div class="alert alert-warning mt-3">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>{{ comprobantes_pendientes }}</strong> comprobante(s) pendiente(s) de revisión
+                    <br>
+                    <a href="{% url 'rifas:comprobantes_pendientes' %}?rifa={{ rifa.pk }}" 
+                       class="btn btn-sm btn-warning mt-2">
+                        Revisar
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Acciones Rápidas -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Acciones</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'rifas:admin_rifa_edit' rifa.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil"></i> Editar Rifa
+                    </a>
+                    <a href="{% url 'rifas:admin_gestion_boletos' rifa.pk %}" class="btn btn-outline-success">
+                        <i class="bi bi-list-check"></i> Gestionar Boletos
+                    </a>
+                    <a href="{% url 'rifas:detalle_rifa' rifa.pk %}" class="btn btn-outline-info" target="_blank">
+                        <i class="bi bi-eye"></i> Ver en el Sitio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

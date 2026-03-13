@@ -1,0 +1,130 @@
+{% extends 'rifas/admin/base_admin.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-pencil-square"></i> {{ titulo }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                                {{ form.nombre.label }}
+                            </label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.fecha_sorteo.id_for_label }}" class="form-label">
+                                {{ form.fecha_sorteo.label }}
+                            </label>
+                            {{ form.fecha_sorteo }}
+                            {% if form.fecha_sorteo.errors %}
+                                <div class="text-danger small">{{ form.fecha_sorteo.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.precio_boleto.id_for_label }}" class="form-label">
+                                {{ form.precio_boleto.label }}
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.precio_boleto }}
+                            </div>
+                            {% if form.precio_boleto.errors %}
+                                <div class="text-danger small">{{ form.precio_boleto.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.boletos_total.id_for_label }}" class="form-label">
+                                {{ form.boletos_total.label }}
+                            </label>
+                            {{ form.boletos_total }}
+                            {% if form.boletos_total.errors %}
+                                <div class="text-danger small">{{ form.boletos_total.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.premio_principal.id_for_label }}" class="form-label">
+                                {{ form.premio_principal.label }}
+                            </label>
+                            {{ form.premio_principal }}
+                            {% if form.premio_principal.errors %}
+                                <div class="text-danger small">{{ form.premio_principal.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.descripcion.id_for_label }}" class="form-label">
+                                {{ form.descripcion.label }}
+                            </label>
+                            {{ form.descripcion }}
+                            {% if form.descripcion.errors %}
+                                <div class="text-danger small">{{ form.descripcion.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.imagen.id_for_label }}" class="form-label">
+                                {{ form.imagen.label }}
+                            </label>
+                            {{ form.imagen }}
+                            {% if form.imagen.errors %}
+                                <div class="text-danger small">{{ form.imagen.errors }}</div>
+                            {% endif %}
+                            {% if form.instance.imagen %}
+                                <div class="mt-2">
+                                    <img src="{{ form.instance.imagen.url }}" alt="Imagen actual" 
+                                         class="img-thumbnail" style="max-height: 200px;">
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="form-check form-switch">
+                                {{ form.activa }}
+                                <label class="form-check-label" for="{{ form.activa.id_for_label }}">
+                                    {{ form.activa.label }}
+                                </label>
+                            </div>
+                            {% if form.activa.errors %}
+                                <div class="text-danger small">{{ form.activa.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'rifas:admin_rifas_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

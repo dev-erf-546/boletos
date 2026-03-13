@@ -1,6 +1,6 @@
 import uuid
 import json
-from django.db.models import Q
+from django.db.models import Q, Count
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
@@ -24,8 +24,13 @@ from .forms import (
     RegistroParticipanteForm, 
     SubirComprobanteForm, 
     ValidarComprobanteForm,
-    RifasCaptchaForm
+    RifasCaptchaForm,
+    RifaForm,
+    UsuarioCreateForm,
+    UsuarioEditForm,
+    UsuarioPasswordForm
 )
+from django.contrib.auth.models import User
 
 from .utils import generar_qr_boleto
 
@@ -338,6 +343,9 @@ def login_view(request):
         
         if user is not None:
             login(request, user)
+            # Redirigir según el tipo de usuario
+            if user.is_staff:
+                return redirect('rifas:admin_dashboard')
             return redirect('rifas:listado_rifas')
         else:
             messages.error(request, 'Usuario o contraseña incorrectos')
@@ -569,3 +577,322 @@ def liberar_boleto(request, boleto_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+# ==================== PANEL DE ADMINISTRACIÓN ====================
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'rifas/admin/dashboard.html'
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Estadísticas generales
+        total_rifas = Rifa.objects.count()
+        rifas_activas = Rifa.objects.filter(activa=True).count()
+        total_boletos = Boleto.objects.count()
+        boletos_vendidos = Boleto.objects.filter(estado='V').count()
+        boletos_reservados = Boleto.objects.filter(estado='R').count()
+        boletos_disponibles = Boleto.objects.filter(estado='D').count()
+        comprobantes_pendientes = ComprobantePago.objects.filter(estado='P').count()
+        
+        # Rifas recientes
+        rifas_recientes = Rifa.objects.order_by('-fecha_creacion')[:5]
+        
+        # Rifas con más ventas
+        rifas_populares = Rifa.objects.annotate(
+            vendidos_count=Count('boletos', filter=Q(boletos__estado='V'))
+        ).order_by('-vendidos_count')[:5]
+        
+        context.update({
+            'total_rifas': total_rifas,
+            'rifas_activas': rifas_activas,
+            'total_boletos': total_boletos,
+            'boletos_vendidos': boletos_vendidos,
+            'boletos_reservados': boletos_reservados,
+            'boletos_disponibles': boletos_disponibles,
+            'comprobantes_pendientes': comprobantes_pendientes,
+            'rifas_recientes': rifas_recientes,
+            'rifas_populares': rifas_populares,
+        })
+        
+        return context
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminRifasListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = Rifa
+    template_name = 'rifas/admin/rifas_list.html'
+    context_object_name = 'rifas'
+    paginate_by = 20
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def get_queryset(self):
+        queryset = Rifa.objects.all().annotate(
+            vendidos_count=Count('boletos', filter=Q(boletos__estado='V')),
+            reservados_count=Count('boletos', filter=Q(boletos__estado='R')),
+            disponibles_count=Count('boletos', filter=Q(boletos__estado='D'))
+        )
+        
+        # Filtros
+        activa = self.request.GET.get('activa')
+        if activa is not None:
+            queryset = queryset.filter(activa=activa == 'true')
+        
+        # Búsqueda
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(nombre__icontains=search) | 
+                Q(descripcion__icontains=search)
+            )
+        
+        return queryset.order_by('-fecha_creacion')
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminRifaCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = Rifa
+    form_class = RifaForm
+    template_name = 'rifas/admin/rifa_form.html'
+    success_url = reverse_lazy('rifas:admin_rifas_list')
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        rifa = self.object
+        
+        # Crear boletos automáticamente
+        boletos_creados = []
+        with transaction.atomic():
+            for numero in range(1, rifa.boletos_total + 1):
+                boleto = Boleto.objects.create(
+                    rifa=rifa,
+                    numero=numero,
+                    estado='D'
+                )
+                boletos_creados.append(boleto)
+        
+        messages.success(
+            self.request, 
+            f'Rifa "{rifa.nombre}" creada exitosamente con {len(boletos_creados)} boletos.'
+        )
+        return response
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = 'Crear Nueva Rifa'
+        return context
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminRifaUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Rifa
+    form_class = RifaForm
+    template_name = 'rifas/admin/rifa_form.html'
+    success_url = reverse_lazy('rifas:admin_rifas_list')
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'Rifa "{form.instance.nombre}" actualizada exitosamente.')
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = f'Editar Rifa: {self.object.nombre}'
+        return context
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminRifaDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    model = Rifa
+    template_name = 'rifas/admin/rifa_detail.html'
+    context_object_name = 'rifa'
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rifa = self.object
+        
+        # Estadísticas de la rifa
+        boletos_vendidos = rifa.boletos.filter(estado='V').count()
+        boletos_reservados = rifa.boletos.filter(estado='R').count()
+        boletos_disponibles = rifa.boletos.filter(estado='D').count()
+        boletos_validacion = rifa.boletos.filter(estado='E').count()
+        
+        # Ingresos estimados
+        ingresos_totales = boletos_vendidos * rifa.precio_boleto
+        
+        # Comprobantes pendientes de esta rifa
+        comprobantes_pendientes = ComprobantePago.objects.filter(
+            boleto__rifa=rifa,
+            estado='P'
+        ).count()
+        
+        context.update({
+            'boletos_vendidos': boletos_vendidos,
+            'boletos_reservados': boletos_reservados,
+            'boletos_disponibles': boletos_disponibles,
+            'boletos_validacion': boletos_validacion,
+            'ingresos_totales': ingresos_totales,
+            'comprobantes_pendientes': comprobantes_pendientes,
+        })
+        
+        return context
+
+# ==================== GESTIÓN DE USUARIOS ====================
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminUsuariosListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = User
+    template_name = 'rifas/admin/usuarios_list.html'
+    context_object_name = 'usuarios'
+    paginate_by = 20
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def get_queryset(self):
+        queryset = User.objects.all().order_by('-date_joined')
+        
+        # Filtros
+        is_staff = self.request.GET.get('is_staff')
+        if is_staff is not None:
+            queryset = queryset.filter(is_staff=is_staff == 'true')
+        
+        is_active = self.request.GET.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active == 'true')
+        
+        # Búsqueda
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(username__icontains=search) | 
+                Q(email__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
+            )
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['total_usuarios'] = User.objects.count()
+        context['usuarios_staff'] = User.objects.filter(is_staff=True).count()
+        context['usuarios_activos'] = User.objects.filter(is_active=True).count()
+        return context
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminUsuarioCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = User
+    form_class = UsuarioCreateForm
+    template_name = 'rifas/admin/usuario_form.html'
+    success_url = reverse_lazy('rifas:admin_usuarios_list')
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'Usuario "{form.instance.username}" creado exitosamente.')
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = 'Crear Nuevo Usuario'
+        return context
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminUsuarioUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = User
+    form_class = UsuarioEditForm
+    template_name = 'rifas/admin/usuario_form.html'
+    success_url = reverse_lazy('rifas:admin_usuarios_list')
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'Usuario "{form.instance.username}" actualizado exitosamente.')
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = f'Editar Usuario: {self.object.username}'
+        return context
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminUsuarioPasswordView(LoginRequiredMixin, UserPassesTestMixin, View):
+    template_name = 'rifas/admin/usuario_password.html'
+    
+    def test_func(self):
+        return self.request.user.is_staff
+    
+    def get(self, request, pk):
+        usuario = get_object_or_404(User, pk=pk)
+        form = UsuarioPasswordForm(user=usuario)
+        return render(request, self.template_name, {
+            'form': form,
+            'usuario': usuario
+        })
+    
+    def post(self, request, pk):
+        usuario = get_object_or_404(User, pk=pk)
+        form = UsuarioPasswordForm(user=usuario, data=request.POST)
+        
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Contraseña de "{usuario.username}" actualizada exitosamente.')
+            return redirect('rifas:admin_usuarios_list')
+        
+        return render(request, self.template_name, {
+            'form': form,
+            'usuario': usuario
+        })
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def toggle_usuario_activo(request, pk):
+    """Activa o desactiva un usuario"""
+    usuario = get_object_or_404(User, pk=pk)
+    
+    # No permitir desactivarse a sí mismo
+    if usuario == request.user:
+        messages.error(request, 'No puedes desactivar tu propia cuenta.')
+        return redirect('rifas:admin_usuarios_list')
+    
+    usuario.is_active = not usuario.is_active
+    usuario.save()
+    
+    estado = 'activado' if usuario.is_active else 'desactivado'
+    messages.success(request, f'Usuario "{usuario.username}" {estado} exitosamente.')
+    
+    return redirect('rifas:admin_usuarios_list')
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def toggle_usuario_staff(request, pk):
+    """Convierte un usuario en staff o lo quita"""
+    usuario = get_object_or_404(User, pk=pk)
+    
+    # No permitir quitarse a sí mismo el permiso de staff
+    if usuario == request.user:
+        messages.error(request, 'No puedes quitar tus propios permisos de administrador.')
+        return redirect('rifas:admin_usuarios_list')
+    
+    usuario.is_staff = not usuario.is_staff
+    usuario.save()
+    
+    estado = 'convertido en administrador' if usuario.is_staff else 'removido como administrador'
+    messages.success(request, f'Usuario "{usuario.username}" {estado} exitosamente.')
+    
+    return redirect('rifas:admin_usuarios_list')

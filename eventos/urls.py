@@ -18,7 +18,22 @@ urlpatterns = [
     path('subir-comprobante/<int:boleto_id>/', views.SubirComprobanteView.as_view(), name='subir_comprobante'),
     path('boleto/<int:boleto_id>/qr/', views.MostrarQRView.as_view(), name='mostrar_qr'),
     
-    # Admin
+    # Admin - Panel Principal
+    path('admin-panel/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
+    path('admin-panel/rifas/', views.AdminRifasListView.as_view(), name='admin_rifas_list'),
+    path('admin-panel/rifas/nueva/', views.AdminRifaCreateView.as_view(), name='admin_rifa_create'),
+    path('admin-panel/rifas/<int:pk>/', views.AdminRifaDetailView.as_view(), name='admin_rifa_detail'),
+    path('admin-panel/rifas/<int:pk>/editar/', views.AdminRifaUpdateView.as_view(), name='admin_rifa_edit'),
+    
+    # Admin - Gestión de Usuarios
+    path('admin-panel/usuarios/', views.AdminUsuariosListView.as_view(), name='admin_usuarios_list'),
+    path('admin-panel/usuarios/nuevo/', views.AdminUsuarioCreateView.as_view(), name='admin_usuario_create'),
+    path('admin-panel/usuarios/<int:pk>/editar/', views.AdminUsuarioUpdateView.as_view(), name='admin_usuario_edit'),
+    path('admin-panel/usuarios/<int:pk>/password/', views.AdminUsuarioPasswordView.as_view(), name='admin_usuario_password'),
+    path('admin-panel/usuarios/<int:pk>/toggle-activo/', views.toggle_usuario_activo, name='toggle_usuario_activo'),
+    path('admin-panel/usuarios/<int:pk>/toggle-staff/', views.toggle_usuario_staff, name='toggle_usuario_staff'),
+    
+    # Admin - Gestión de Boletos y Comprobantes
     path('admin/boletos/', views.ComprobantesPendientesView.as_view(), name='comprobantes_pendientes'),
     path('admin/comprobantes/<int:pk>/validar/', views.ValidarComprobanteView.as_view(), name='validar_comprobante'),
     path('admin/descargar-qrs/', views.descargar_qrs_aprobados, name='descargar_qrs'),

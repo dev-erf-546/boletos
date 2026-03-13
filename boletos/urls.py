@@ -11,5 +11,5 @@ urlpatterns = [
     #path('usuario/login/', auth_views.LoginView.as_view(template_name='rifas/login.html'), name='login'),
     #path('usuario/logout/', auth_views.LogoutView.as_view(), name='logout'),
 
-    path('accounts/', include('allauth.urls')),
+    path('usuario/', include('allauth.urls')),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

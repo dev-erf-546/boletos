@@ -182,8 +182,9 @@ ACCOUNT_EMAIL_REQUIRED = False  # Requiere email para registro
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # 'mandatory' o 'optional'
 ACCOUNT_LOGOUT_ON_GET = True  # Cierra sesión con solo visitar /accounts/logout/
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True  # Pide confirmación de contraseña
-LOGIN_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del login
+LOGIN_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del login (fallback)
 LOGOUT_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del logout
+ACCOUNT_ADAPTER = 'eventos.adapters.CustomAccountAdapter'  # Adaptador personalizado para redirección
 
 
 # settings.py (versión segura para producción)
