@@ -88,11 +88,15 @@
                                 {{ form.imagen.label }}
                             </label>
                             {{ form.imagen }}
+                            <small class="form-text text-muted">
+                                Formatos permitidos: JPEG, PNG, GIF, WebP. Tamaño máximo: 10MB
+                            </small>
                             {% if form.imagen.errors %}
-                                <div class="text-danger small">{{ form.imagen.errors }}</div>
+                                <div class="text-danger small mt-1">{{ form.imagen.errors }}</div>
                             {% endif %}
                             {% if form.instance.imagen %}
                                 <div class="mt-2">
+                                    <p class="small text-muted">Imagen actual:</p>
                                     <img src="{{ form.instance.imagen.url }}" alt="Imagen actual" 
                                          class="img-thumbnail" style="max-height: 200px;">
                                 </div>
@@ -127,4 +131,36 @@
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+// Validación del lado del cliente para el tamaño de imagen
+document.addEventListener('DOMContentLoaded', function() {
+    const imagenInput = document.querySelector('input[type="file"]');
+    if (imagenInput) {
+        imagenInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const maxSize = 10 * 1024 * 1024; // 10MB en bytes
+                const fileSize = file.size;
+                
+                if (fileSize > maxSize) {
+                    alert('El archivo es demasiado grande. Tamaño máximo permitido: 10MB. Tamaño actual: ' + 
+                          (fileSize / (1024 * 1024)).toFixed(2) + 'MB');
+                    e.target.value = ''; // Limpiar el input
+                    return false;
+                }
+                
+                // Validar tipo de archivo
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Tipo de archivo no permitido. Formatos permitidos: JPEG, PNG, GIF, WebP');
+                    e.target.value = '';
+                    return false;
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

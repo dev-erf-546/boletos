@@ -67,12 +67,15 @@ class RifaForm(forms.ModelForm):
                   'descripcion', 'imagen', 'activa']
         widgets = {
             'fecha_sorteo': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
-            'descripcion': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
-            'premio_principal': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'descripcion': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'maxlength': 5000}),
+            'premio_principal': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'maxlength': 2000}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 100}),
             'precio_boleto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'boletos_total': forms.NumberInput(attrs={'class': 'form-control'}),
-            'imagen': forms.FileInput(attrs={'class': 'form-control'}),
+            'imagen': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/jpg,image/png,image/gif,image/webp'
+            }),
             'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
@@ -82,14 +85,35 @@ class RifaForm(forms.ModelForm):
             'boletos_total': 'Total de Boletos',
             'premio_principal': 'Premio Principal',
             'descripcion': 'Descripción',
-            'imagen': 'Imagen de la Rifa',
+            'imagen': 'Imagen de la Rifa (máx. 10MB)',
             'activa': 'Rifa Activa',
         }
+    
+    def clean_imagen(self):
+        imagen = self.cleaned_data.get('imagen', False)
+        if imagen:
+            # Validar tamaño máximo (10MB)
+            max_size = 10 * 1024 * 1024  # 10MB en bytes
+            if imagen.size > max_size:
+                raise forms.ValidationError(
+                    f"La imagen es demasiado grande. Tamaño máximo permitido: 10MB. "
+                    f"Tamaño actual: {imagen.size / (1024*1024):.2f}MB"
+                )
+            
+            # Validar tipo de archivo
+            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+            if imagen.content_type not in allowed_types:
+                raise forms.ValidationError(
+                    f"Tipo de archivo no permitido. Formatos permitidos: JPEG, PNG, GIF, WebP"
+                )
+        return imagen
     
     def clean_boletos_total(self):
         boletos_total = self.cleaned_data.get('boletos_total')
         if boletos_total and boletos_total <= 0:
             raise forms.ValidationError("El total de boletos debe ser mayor a 0")
+        if boletos_total and boletos_total > 99999:
+            raise forms.ValidationError("El total de boletos no puede ser mayor a 99,999")
         return boletos_total
     
     def clean_precio_boleto(self):
@@ -97,6 +121,18 @@ class RifaForm(forms.ModelForm):
         if precio and precio <= 0:
             raise forms.ValidationError("El precio del boleto debe ser mayor a 0")
         return precio
+    
+    def clean_descripcion(self):
+        descripcion = self.cleaned_data.get('descripcion', '')
+        if len(descripcion) > 5000:
+            raise forms.ValidationError("La descripción no puede tener más de 5000 caracteres")
+        return descripcion
+    
+    def clean_premio_principal(self):
+        premio = self.cleaned_data.get('premio_principal', '')
+        if len(premio) > 2000:
+            raise forms.ValidationError("El premio principal no puede tener más de 2000 caracteres")
+        return premio
 
 class UsuarioCreateForm(UserCreationForm):
     email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'class': 'form-control'}))

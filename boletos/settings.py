@@ -166,8 +166,10 @@ SESSION_COOKIE_AGE = 86400  # 1 día en segundos
 SESSION_SAVE_EVERY_REQUEST = True
 
 # Configuración de archivos permitidos
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB - Archivos en memoria
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB - Datos del formulario
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10240  # Número máximo de campos en formulario
+FILE_UPLOAD_TEMP_DIR = None  # Usar directorio temporal del sistema para archivos grandes
 
 # Configuración de autenticación
 AUTHENTICATION_BACKENDS = [
