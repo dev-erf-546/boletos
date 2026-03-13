@@ -1,379 +1,676 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rifa 2da Gran Cabalgata</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            align-items: center;
-        }
-        .search-box {
-            padding: 8px;
-            width: 200px;
-        }
-        .ticket-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-            gap: 10px;
-            margin-bottom: 30px;
-        }
-        .ticket {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-        }
-        .ticket:hover {
-            transform: scale(1.05);
-        }
-        .available {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .sold {
-            background-color: #f8d7da;
-            color: #721c24;
-            text-decoration: line-through;
-        }
-        .reserved {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-        .selected {
-            background-color: #cce5ff;
-            color: #004085;
-            font-weight: bold;
-            box-shadow: 0 0 0 2px #004085;
-        }
-        .summary {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-top: 20px;
-            position: sticky;
-            bottom: 20px;
-        }
-        .whatsapp-btn {
-            display: inline-block;
-            background-color: #25D366;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            font-style: italic;
-            color: #6c757d;
-        }
-        .status-filter {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .filter-btn {
-            padding: 5px 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .filter-btn.active {
-            background-color: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Rifa 2da Gran Cabalgata</h1>
-        <p>Selecciona tus números favoritos</p>
-    </div>
-
-    <div class="controls">
-        <input type="text" class="search-box" placeholder="Buscar número..." id="searchBox">
-    </div>
-
-    <h2>Números de la rifa</h2>
-    <div id="loadingMessage" class="loading">Cargando boletos...</div>
-    <div class="ticket-grid" id="ticketGrid"></div>
-
-    <div class="summary">
-        <h3>Resumen</h3>
-        <p><strong>Rifa:</strong> Rifa 2da Gran Cabalgata</p>
-        <p><strong>Precio por boleto:</strong> $<span id="ticketPrice">100.00</span></p>
-        <p><strong>Total seleccionados:</strong> <span id="totalSelected">0</span></p>
-        <p><strong>Total a pagar:</strong> $<span id="totalToPay">0.00</span></p>
-        
-        <a href="#" class="whatsapp-btn" id="whatsappBtn">
-            Comprar por WhatsApp
-        </a>
-    </div>
-    <div id="api-data" data-api-url="{{ api_url }}" style="display: none;"></div>
-
-    <script>
-        // Configuración
-        const whatsappNumber = "529933933115"; // Reemplaza con tu número
-        const apiDataElement = document.getElementById('api-data');
-        const apiEndpoint = apiDataElement.dataset.apiUrl;
-
-        if (!apiDataElement) {
-            console.error('Elemento con datos de API no encontrado');
-            // Puedes definir un valor por defecto o mostrar un mensaje de error
-            const apiEndpoint = '/api/rifas/1/'; // Valor por defecto (deberías manejar esto mejor)
-        } else {
-            const apiEndpoint = apiDataElement.dataset.apiUrl;
-        }
-        
-        // Variables
-        let selectedTickets = [];
-        let allTickets = [];
-        let filteredTickets = [];
-        const ticketsPerPage = 100;
-        let currentPage = 1;
-        
-        // Elementos del DOM
-        const ticketGrid = document.getElementById('ticketGrid');
-        const loadingMessage = document.getElementById('loadingMessage');
-        const searchBox = document.getElementById('searchBox');
-        const filterButtons = document.querySelectorAll('.filter-btn');
-        
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', () => {
-            fetchTickets();
-            setupEventListeners();
-        });
-        
-        // Configurar event listeners
-        function setupEventListeners() {
-            // Filtros
-            filterButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    filterButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    filterTickets(btn.dataset.status);
-                });
-            });
-            
-            // Búsqueda
-            searchBox.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                filterTickets(document.querySelector('.filter-btn.active').dataset.status, searchTerm);
-            });
-        }
-        
-        // Obtener boletos del backend
-        async function fetchTickets() {
-            try {
-                const response = await fetch(apiEndpoint);
-                if (!response.ok) throw new Error('Error al cargar los boletos');
-                
-                const data = await response.json();
-                
-                // Procesar la respuesta
-                allTickets = data.boletos.map(boleto => ({
-                    id: boleto.id,
-                    numero: boleto.numero,
-                    estatus: boleto.estado === 'D' ? 'disponible' : 
-                            boleto.estado === 'V' ? 'vendido' : 'reservado'
-                }));
-                
-                loadingMessage.style.display = 'none';
-                renderTickets(allTickets);
-                
-                // Actualizar precio desde la API
-                document.getElementById('ticketPrice').textContent = data.rifa.precio_boleto;
-            } catch (error) {
-                console.error('Error:', error);
-                loadingMessage.textContent = 'Error al cargar los boletos. Por favor recarga la página.';
-            }
-        }
-        
-        // Renderizar boletos
-        function renderTickets(tickets) {
-            ticketGrid.innerHTML = '';
-            
-            if (tickets.length === 0) {
-                ticketGrid.innerHTML = '<p>No se encontraron boletos con esos criterios</p>';
-                return;
-            }
-            
-            tickets.forEach(ticket => {
-                const ticketElement = document.createElement('div');
-                ticketElement.className = 'ticket';
-                ticketElement.textContent = ticket.numero;
-                ticketElement.dataset.id = ticket.id;
-                ticketElement.dataset.status = ticket.estatus; // 'disponible', 'vendido', 'reservado'
-                
-                // Estilo según estado
-                if (ticket.estatus === 'vendido') {
-                    ticketElement.classList.add('sold');
-                    ticketElement.title = 'Vendido';
-                } else if (ticket.estatus === 'reservado') {
-                    ticketElement.classList.add('reserved');
-                    ticketElement.title = 'Reservado';
-                } else {
-                    ticketElement.classList.add('available');
-                    ticketElement.title = 'Disponible';
-                    ticketElement.addEventListener('click', () => toggleTicketSelection(ticket));
-                }
-                
-                // Resaltar si está seleccionado
-                if (selectedTickets.some(t => t.id === ticket.id)) {
-                    ticketElement.classList.add('selected');
-                }
-                
-                ticketGrid.appendChild(ticketElement);
-            });
-        }
-        
-        // Filtrar boletos
-        function filterTickets(status, searchTerm = '') {
-            filteredTickets = allTickets.filter(ticket => {
-                const matchesStatus = status === 'all' || ticket.estatus === status;
-                const matchesSearch = ticket.numero.toString().includes(searchTerm);
-                return matchesStatus && matchesSearch;
-            });
-            
-            renderTickets(filteredTickets);
-        }
-        
-        // Seleccionar/deseleccionar boletos
-        function toggleTicketSelection(ticket) {
-            if (ticket.estatus !== 'disponible') return;
-            
-            const index = selectedTickets.findIndex(t => t.id === ticket.id);
-            
-            if (index === -1) {
-                selectedTickets.push(ticket);
-            } else {
-                selectedTickets.splice(index, 1);
-            }
-            
-            updateSummary();
-            renderTickets(filteredTickets); // Para actualizar los estilos
-        }
-        
-        // Actualizar el resumen
-        function updateSummary() {
-            const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
-            const total = selectedTickets.length * ticketPrice;
-            
-            document.getElementById('totalSelected').textContent = selectedTickets.length;
-            document.getElementById('totalToPay').textContent = total.toFixed(2);
-            
-            // Actualizar enlace de WhatsApp
-            const whatsappBtn = document.getElementById('whatsappBtn');
-            const numbers = selectedTickets.map(t => t.numero).join(', ');
-            const message = `Hola, quiero comprar los siguientes boletos de la rifa: ${numbers}`;
-            
-            whatsappBtn.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-            whatsappBtn.style.display = selectedTickets.length > 0 ? 'inline-block' : 'none';
-        }
-    </script>
-</body>
-</html>
-
-
-{% comment %} {% extends 'rifas/base.html' %}
+{% extends 'rifas/base.html' %}
 
 {% block title %}{{ rifa.nombre }}{% endblock %}
 
-{% block content %}
-<div class="row mb-4">
-    <div class="col-md-8">
-        <h1>{{ rifa.nombre }}</h1>
-        <p class="lead">{{ rifa.descripcion }}</p>
-    </div>
-    <div class="col-md-4 text-md-end">
-        <span class="badge bg-primary fs-6">
-            <i class="bi bi-calendar-event"></i> {{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}
-        </span>
-    </div>
-</div>
+{% block extra_css %}
+<style>
+    .rifa-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        border-radius: 15px;
+    }
+    
+    .stats-card {
+        border-left: 4px solid;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card.vendidos { border-left-color: #dc3545; }
+    .stats-card.reservados { border-left-color: #ffc107; }
+    .stats-card.disponibles { border-left-color: #28a745; }
+    .stats-card.validacion { border-left-color: #17a2b8; }
+    
+    .ticket-grid-container {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .ticket-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 10px;
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+    }
+    
+    .ticket {
+        aspect-ratio: 1;
+        border: 2px solid;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .ticket::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        transition: left 0.5s;
+    }
+    
+    .ticket:hover::before {
+        left: 100%;
+    }
+    
+    .ticket.available {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-color: #1e7e34;
+    }
+    
+    .ticket.available:hover {
+        transform: scale(1.1);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+    }
+    
+    .ticket.sold {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-color: #bd2130;
+        opacity: 0.7;
+        cursor: not-allowed;
+        text-decoration: line-through;
+    }
+    
+    .ticket.reserved {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        color: #212529;
+        border-color: #e0a800;
+    }
+    
+    .ticket.selected {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-color: #0056b3;
+        box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.3);
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .controls-panel {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .summary-panel {
+        position: sticky;
+        bottom: 20px;
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 1000;
+    }
+    
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .progress-ring circle {
+        transition: stroke-dashoffset 0.5s;
+    }
+    
+    .filter-badge {
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .filter-badge.active {
+        transform: scale(1.1);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #007bff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .ticket-counter {
+        font-size: 0.75rem;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    
+    @media (max-width: 768px) {
+        .ticket-grid {
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 8px;
+        }
+        
+        .ticket {
+            font-size: 0.8rem;
+        }
+    }
+</style>
+{% endblock %}
 
-<div class="row">
-    <div class="col-md-6 mb-4">
-        {% if rifa.imagen %}
-        <img src="{{ rifa.imagen.url }}" class="img-fluid rounded shadow" alt="{{ rifa.nombre }}">
-        {% endif %}
-    </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">Premio Principal</h3>
+{% block content %}
+<!-- Hero Section -->
+<div class="rifa-hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-4 mb-3">{{ rifa.nombre }}</h1>
+                {% if rifa.descripcion %}
+                <p class="lead mb-0">{{ rifa.descripcion|truncatewords:30 }}</p>
+                {% endif %}
             </div>
-            <div class="card-body">
-                <p class="card-text">{{ rifa.premio_principal }}</p>
-                <hr>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="mb-0">${{ rifa.precio_boleto }}</h5>
-                        <small class="text-muted">Precio por boleto</small>
-                    </div>
-                    <div>
-                        <span class="badge bg-success fs-6">
-                            {{ rifa.boletos_disponibles }} disponibles
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer">
-                {% if rifa.boletos_disponibles > 0 %}
-                <a href="{% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary w-100">
-                    Comprar boleto <i class="bi bi-arrow-right"></i>
-                </a>
-                {% else %}
-                <button class="btn btn-secondary w-100" disabled>
-                    Agotado <i class="bi bi-exclamation-circle"></i>
-                </button>
+            <div class="col-md-4 text-md-end">
+                {% if rifa.imagen %}
+                <img src="{{ rifa.imagen.url }}" alt="{{ rifa.nombre }}" 
+                     class="img-fluid rounded shadow-lg" style="max-height: 200px;">
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h3 class="mb-0">Detalles del sorteo</h3>
+<div class="container">
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card vendidos h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Vendidos</h6>
+                            <h2 class="mb-0 text-danger">{{ boletos_vendidos }}</h2>
+                            <small class="text-muted">{{ porcentaje_vendidos }}%</small>
+                        </div>
+                        <i class="bi bi-check-circle-fill text-danger" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <strong>Fecha de sorteo:</strong> {{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}
-                    </li>
-                    <li class="list-group-item">
-                        <strong>Total de boletos:</strong> {{ rifa.boletos_total }}
-                    </li>
-                    <li class="list-group-item">
-                        <strong>Boletos vendidos:</strong> {{ rifa.boletos_vendidos }}
-                    </li>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card reservados h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Reservados</h6>
+                            <h2 class="mb-0 text-warning">{{ boletos_reservados }}</h2>
+                            <small class="text-muted">{{ porcentaje_reservados }}%</small>
+                        </div>
+                        <i class="bi bi-clock-history text-warning" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card disponibles h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Disponibles</h6>
+                            <h2 class="mb-0 text-success">{{ boletos_disponibles }}</h2>
+                            <small class="text-muted">{{ porcentaje_disponibles }}%</small>
+                        </div>
+                        <i class="bi bi-ticket-perforated text-success" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card validacion h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">En Validación</h6>
+                            <h2 class="mb-0 text-info">{{ boletos_validacion }}</h2>
+                            <small class="text-muted">${{ rifa.precio_boleto|floatformat:2 }}</small>
+                        </div>
+                        <i class="bi bi-hourglass-split text-info" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                </ul>
+    <!-- Información de la Rifa -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-info-circle"></i> Información del Sorteo</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="bi bi-calendar-event"></i> Fecha de Sorteo:</strong><br>
+                            <span class="text-muted">{{ rifa.fecha_sorteo|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="bi bi-currency-dollar"></i> Precio por Boleto:</strong><br>
+                            <span class="text-primary fs-4">${{ rifa.precio_boleto|floatformat:2 }}</span>
+                        </div>
+                        <div class="col-md-12">
+                            <strong><i class="bi bi-trophy"></i> Premio Principal:</strong><br>
+                            <p class="text-muted mb-0">{{ rifa.premio_principal }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Progreso</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{ porcentaje_vendidos }}%">
+                                {{ porcentaje_vendidos }}%
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mb-1"><strong>Total:</strong> {{ rifa.boletos_total }} boletos</p>
+                    <p class="mb-0 text-muted">
+                        <small>Ingresos: ${{ ingresos_totales|floatformat:2 }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Controles -->
+    <div class="controls-panel">
+        <div class="row align-items-center">
+            <div class="col-md-4 mb-3 mb-md-0">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="searchBox" 
+                           placeholder="Buscar número de boleto...">
+                </div>
+            </div>
+            <div class="col-md-4 mb-3 mb-md-0">
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="filterStatus" id="filterAll" value="all" checked>
+                    <label class="btn btn-outline-primary" for="filterAll">Todos</label>
+                    
+                    <input type="radio" class="btn-check" name="filterStatus" id="filterAvailable" value="disponible">
+                    <label class="btn btn-outline-success" for="filterAvailable">Disponibles</label>
+                    
+                    <input type="radio" class="btn-check" name="filterStatus" id="filterSold" value="vendido">
+                    <label class="btn btn-outline-danger" for="filterSold">Vendidos</label>
+                    
+                    <input type="radio" class="btn-check" name="filterStatus" id="filterReserved" value="reservado">
+                    <label class="btn btn-outline-warning" for="filterReserved">Reservados</label>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="d-flex justify-content-md-end gap-2">
+                    <button class="btn btn-outline-secondary" id="selectRangeBtn">
+                        <i class="bi bi-list-ol"></i> Seleccionar Rango
+                    </button>
+                    <button class="btn btn-outline-danger" id="clearSelectionBtn" style="display: none;">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid de Boletos -->
+    <div class="ticket-grid-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="bi bi-ticket-perforated"></i> Selecciona tus Boletos</h4>
+            <span class="badge bg-primary fs-6" id="ticketsCount">Cargando...</span>
+        </div>
+        <div id="loadingMessage" class="text-center py-5">
+            <div class="loading-spinner"></div>
+            <p class="mt-3 text-muted">Cargando boletos...</p>
+        </div>
+        <div class="ticket-grid" id="ticketGrid" style="display: none;"></div>
+        <div class="mt-3 text-center">
+            <nav aria-label="Paginación de boletos">
+                <ul class="pagination justify-content-center" id="pagination"></ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Panel de Resumen (Sticky) -->
+    <div class="summary-panel" id="summaryPanel" style="display: none;">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h5 class="mb-2"><i class="bi bi-cart-check"></i> Resumen de Compra</h5>
+                <p class="mb-1"><strong>Boletos seleccionados:</strong> <span id="totalSelected" class="text-primary">0</span></p>
+                <p class="mb-1"><strong>Precio unitario:</strong> $<span id="ticketPrice">{{ rifa.precio_boleto|floatformat:2 }}</span></p>
+                <h4 class="mb-0"><strong>Total:</strong> $<span id="totalToPay" class="text-success">0.00</span></h4>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                {% if user.is_authenticated %}
+                <a href="{% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary btn-lg" id="buyBtn" style="display: none;">
+                    <i class="bi bi-cart-plus"></i> Proceder a Comprar
+                </a>
+                {% else %}
+                <a href="{% url 'account_login' %}?next={% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary btn-lg" id="buyBtn" style="display: none;">
+                    <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión para Comprar
+                </a>
+                {% endif %}
+                <a href="https://wa.me/529933933115?text=" class="btn btn-success btn-lg" id="whatsappBtn" style="display: none;" target="_blank">
+                    <i class="bi bi-whatsapp"></i> Contactar por WhatsApp
+                </a>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} {% endcomment %}
+
+<div id="api-data" data-api-url="{{ api_url }}" style="display: none;"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Configuración
+const apiDataElement = document.getElementById('api-data');
+const apiEndpoint = apiDataElement ? apiDataElement.dataset.apiUrl : '';
+const whatsappNumber = "529933933115";
+const ticketsPerPage = 200; // Boletos por página para mejor rendimiento
+
+// Variables globales
+let allTickets = [];
+let filteredTickets = [];
+let selectedTickets = [];
+let currentPage = 1;
+let currentFilter = 'all';
+let currentSearch = '';
+
+// Elementos del DOM
+const ticketGrid = document.getElementById('ticketGrid');
+const loadingMessage = document.getElementById('loadingMessage');
+const searchBox = document.getElementById('searchBox');
+const summaryPanel = document.getElementById('summaryPanel');
+const ticketsCount = document.getElementById('ticketsCount');
+const pagination = document.getElementById('pagination');
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', () => {
+    if (apiEndpoint) {
+        fetchTickets();
+    } else {
+        loadingMessage.innerHTML = '<p class="text-danger">Error: No se pudo cargar la configuración de la API</p>';
+    }
+    setupEventListeners();
+});
+
+// Event Listeners
+function setupEventListeners() {
+    // Búsqueda
+    searchBox.addEventListener('input', (e) => {
+        currentSearch = e.target.value.toLowerCase();
+        filterTickets();
+    });
+    
+    // Filtros de estado
+    document.querySelectorAll('input[name="filterStatus"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            currentFilter = e.target.value;
+            filterTickets();
+        });
+    });
+    
+    // Botón limpiar selección
+    document.getElementById('clearSelectionBtn').addEventListener('click', () => {
+        selectedTickets = [];
+        updateSummary();
+        renderTickets();
+    });
+    
+    // Botón seleccionar rango
+    document.getElementById('selectRangeBtn').addEventListener('click', () => {
+        const start = prompt('Número inicial:');
+        const end = prompt('Número final:');
+        if (start && end) {
+            selectRange(parseInt(start), parseInt(end));
+        }
+    });
+}
+
+// Cargar boletos desde API
+async function fetchTickets() {
+    try {
+        const response = await fetch(apiEndpoint);
+        if (!response.ok) throw new Error('Error al cargar los boletos');
+        
+        const data = await response.json();
+        
+        allTickets = data.boletos.map(boleto => ({
+            id: boleto.id,
+            numero: boleto.numero,
+            estado: boleto.estado,
+            estatus: boleto.estado === 'D' ? 'disponible' : 
+                    boleto.estado === 'V' ? 'vendido' : 
+                    boleto.estado === 'R' ? 'reservado' : 'validacion'
+        }));
+        
+        loadingMessage.style.display = 'none';
+        ticketGrid.style.display = 'grid';
+        
+        filterTickets();
+        updateWhatsAppButton();
+    } catch (error) {
+        console.error('Error:', error);
+        loadingMessage.innerHTML = '<p class="text-danger">Error al cargar los boletos. Por favor recarga la página.</p>';
+    }
+}
+
+// Filtrar boletos
+function filterTickets() {
+    filteredTickets = allTickets.filter(ticket => {
+        const matchesFilter = currentFilter === 'all' || ticket.estatus === currentFilter;
+        const matchesSearch = ticket.numero.toString().includes(currentSearch);
+        return matchesFilter && matchesSearch;
+    });
+    
+    currentPage = 1;
+    renderTickets();
+    updatePagination();
+    ticketsCount.textContent = `${filteredTickets.length} boletos`;
+}
+
+// Renderizar boletos con paginación virtual
+function renderTickets() {
+    ticketGrid.innerHTML = '';
+    
+    if (filteredTickets.length === 0) {
+        ticketGrid.innerHTML = '<div class="col-12 text-center py-5"><p class="text-muted">No se encontraron boletos con esos criterios</p></div>';
+        return;
+    }
+    
+    const start = (currentPage - 1) * ticketsPerPage;
+    const end = start + ticketsPerPage;
+    const pageTickets = filteredTickets.slice(start, end);
+    
+    pageTickets.forEach(ticket => {
+        const ticketElement = document.createElement('div');
+        ticketElement.className = `ticket ${ticket.estatus}`;
+        ticketElement.textContent = ticket.numero;
+        ticketElement.dataset.id = ticket.id;
+        ticketElement.dataset.numero = ticket.numero;
+        ticketElement.dataset.status = ticket.estatus;
+        
+        // Tooltip
+        ticketElement.title = `Boleto #${ticket.numero} - ${ticket.estatus.charAt(0).toUpperCase() + ticket.estatus.slice(1)}`;
+        
+        // Click solo en disponibles
+        if (ticket.estatus === 'disponible') {
+            ticketElement.addEventListener('click', () => toggleTicketSelection(ticket));
+        }
+        
+        // Marcar como seleccionado
+        if (selectedTickets.some(t => t.id === ticket.id)) {
+            ticketElement.classList.add('selected');
+        }
+        
+        ticketGrid.appendChild(ticketElement);
+    });
+}
+
+// Seleccionar/deseleccionar boleto
+function toggleTicketSelection(ticket) {
+    if (ticket.estatus !== 'disponible') return;
+    
+    const index = selectedTickets.findIndex(t => t.id === ticket.id);
+    
+    if (index === -1) {
+        selectedTickets.push(ticket);
+    } else {
+        selectedTickets.splice(index, 1);
+    }
+    
+    updateSummary();
+    renderTickets();
+}
+
+// Seleccionar rango de boletos
+function selectRange(start, end) {
+    if (start > end) [start, end] = [end, start];
+    
+    const rangeTickets = allTickets.filter(t => 
+        t.estatus === 'disponible' && 
+        t.numero >= start && 
+        t.numero <= end
+    );
+    
+    rangeTickets.forEach(ticket => {
+        if (!selectedTickets.some(t => t.id === ticket.id)) {
+            selectedTickets.push(ticket);
+        }
+    });
+    
+    updateSummary();
+    renderTickets();
+    document.getElementById('clearSelectionBtn').style.display = 'inline-block';
+}
+
+// Actualizar resumen
+function updateSummary() {
+    const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
+    const total = selectedTickets.length * ticketPrice;
+    
+    document.getElementById('totalSelected').textContent = selectedTickets.length;
+    document.getElementById('totalToPay').textContent = total.toFixed(2);
+    
+    if (selectedTickets.length > 0) {
+        summaryPanel.style.display = 'block';
+        document.getElementById('buyBtn').style.display = 'inline-block';
+        document.getElementById('clearSelectionBtn').style.display = 'inline-block';
+        updateWhatsAppButton();
+    } else {
+        summaryPanel.style.display = 'none';
+        document.getElementById('buyBtn').style.display = 'none';
+        document.getElementById('clearSelectionBtn').style.display = 'none';
+    }
+}
+
+// Actualizar botón de WhatsApp
+function updateWhatsAppButton() {
+    if (selectedTickets.length === 0) {
+        document.getElementById('whatsappBtn').style.display = 'none';
+        return;
+    }
+    
+    const numbers = selectedTickets.map(t => t.numero).join(', ');
+    const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
+    const total = selectedTickets.length * ticketPrice;
+    const message = `Hola, estoy interesado en comprar los siguientes boletos de la rifa "{{ rifa.nombre }}":\n\nNúmeros: ${numbers}\n\nTotal: $${total.toFixed(2)}\n\n¿Están disponibles?`;
+    
+    document.getElementById('whatsappBtn').href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    document.getElementById('whatsappBtn').style.display = 'inline-block';
+}
+
+// Actualizar paginación
+function updatePagination() {
+    const totalPages = Math.ceil(filteredTickets.length / ticketsPerPage);
+    pagination.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Botón anterior
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Anterior</a>`;
+    pagination.appendChild(prevLi);
+    
+    // Números de página
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>`;
+            pagination.appendChild(li);
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            const li = document.createElement('li');
+            li.className = 'page-item disabled';
+            li.innerHTML = '<span class="page-link">...</span>';
+            pagination.appendChild(li);
+        }
+    }
+    
+    // Botón siguiente
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Siguiente</a>`;
+    pagination.appendChild(nextLi);
+}
+
+// Cambiar página
+function changePage(page) {
+    const totalPages = Math.ceil(filteredTickets.length / ticketsPerPage);
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    renderTickets();
+    updatePagination();
+    ticketGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+{% endblock %}

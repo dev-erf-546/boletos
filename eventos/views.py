@@ -51,8 +51,34 @@ class RifaDetailView(DetailView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['boletos_disponibles'] = self.object.boletos_disponibles
-        context['api_url'] = reverse('rifas:rifa-detail-api', args=[str(self.object.id)])
+        rifa = self.object
+        
+        # Estadísticas detalladas
+        boletos_vendidos = rifa.boletos.filter(estado='V').count()
+        boletos_reservados = rifa.boletos.filter(estado='R').count()
+        boletos_disponibles = rifa.boletos.filter(estado='D').count()
+        boletos_validacion = rifa.boletos.filter(estado='E').count()
+        
+        # Porcentajes para visualización
+        total = rifa.boletos_total
+        porcentaje_vendidos = (boletos_vendidos / total * 100) if total > 0 else 0
+        porcentaje_reservados = (boletos_reservados / total * 100) if total > 0 else 0
+        porcentaje_disponibles = (boletos_disponibles / total * 100) if total > 0 else 0
+        
+        # Ingresos estimados
+        ingresos_totales = boletos_vendidos * rifa.precio_boleto
+        
+        context.update({
+            'boletos_disponibles': boletos_disponibles,
+            'boletos_vendidos': boletos_vendidos,
+            'boletos_reservados': boletos_reservados,
+            'boletos_validacion': boletos_validacion,
+            'porcentaje_vendidos': round(porcentaje_vendidos, 1),
+            'porcentaje_reservados': round(porcentaje_reservados, 1),
+            'porcentaje_disponibles': round(porcentaje_disponibles, 1),
+            'ingresos_totales': ingresos_totales,
+            'api_url': reverse('rifas:rifa-detail-api', args=[str(rifa.id)]),
+        })
         return context
 
 class SeleccionNumeroView(LoginRequiredMixin, View):
@@ -394,35 +420,77 @@ def descargar_qrs_aprobados(request):
     return response
 
 @method_decorator(staff_member_required, name='dispatch')
-class AdminGestionBoletosView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class AdminGestionBoletosView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     template_name = 'rifas/admin/gestion_boletos.html'
+    context_object_name = 'boletos'
+    paginate_by = 50  # 50 boletos por página para mejor rendimiento
     
     def test_func(self):
         return self.request.user.is_staff
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    def get_queryset(self):
         rifa_id = self.kwargs.get('rifa_id')
-        context['rifa'] = get_object_or_404(Rifa, pk=rifa_id)
+        self.rifa = get_object_or_404(Rifa, pk=rifa_id)
         
-        # Filtros adicionales
+        # Base query optimizada
+        boletos = Boleto.objects.filter(rifa_id=rifa_id).select_related(
+            'participante', 'rifa'
+        ).prefetch_related('qr')
+        
+        # Filtros
+        estado = self.request.GET.get('estado')
+        if estado:
+            boletos = boletos.filter(estado=estado)
+        
         numero_inicio = self.request.GET.get('inicio')
         numero_fin = self.request.GET.get('fin')
-        
-        # Base query con prefetch del QR y participante
-        boletos = Boleto.objects.filter(rifa_id=rifa_id).select_related(
-            'participante'
-        ).prefetch_related(
-            'qr'  # Asume que tienes related_name='qr_boleto' en tu modelo QRBoleto
-        )
-        
-        # Aplicar filtros si existen
         if numero_inicio and numero_fin:
             boletos = boletos.filter(numero__gte=numero_inicio, numero__lte=numero_fin)
         
-        context['boletos'] = boletos.order_by('numero')
-        context['participante_form'] = RegistroParticipanteForm()
-        context['comprobante_form'] = SubirComprobanteForm()
+        # Búsqueda por número o participante
+        search = self.request.GET.get('search')
+        if search:
+            boletos = boletos.filter(
+                Q(numero__icontains=search) |
+                Q(participante__nombre_completo__icontains=search) |
+                Q(participante__telefono__icontains=search)
+            )
+        
+        return boletos.order_by('numero')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rifa = self.rifa
+        
+        # Estadísticas de la rifa
+        total_boletos = rifa.boletos_total
+        boletos_vendidos = rifa.boletos.filter(estado='V').count()
+        boletos_reservados = rifa.boletos.filter(estado='R').count()
+        boletos_disponibles = rifa.boletos.filter(estado='D').count()
+        boletos_validacion = rifa.boletos.filter(estado='E').count()
+        
+        # Porcentajes
+        porcentaje_vendidos = (boletos_vendidos / total_boletos * 100) if total_boletos > 0 else 0
+        porcentaje_reservados = (boletos_reservados / total_boletos * 100) if total_boletos > 0 else 0
+        porcentaje_disponibles = (boletos_disponibles / total_boletos * 100) if total_boletos > 0 else 0
+        
+        context.update({
+            'rifa': rifa,
+            'total_boletos': total_boletos,
+            'boletos_vendidos': boletos_vendidos,
+            'boletos_reservados': boletos_reservados,
+            'boletos_disponibles': boletos_disponibles,
+            'boletos_validacion': boletos_validacion,
+            'porcentaje_vendidos': round(porcentaje_vendidos, 1),
+            'porcentaje_reservados': round(porcentaje_reservados, 1),
+            'porcentaje_disponibles': round(porcentaje_disponibles, 1),
+            'participante_form': RegistroParticipanteForm(),
+            'comprobante_form': SubirComprobanteForm(),
+            'current_estado': self.request.GET.get('estado', ''),
+            'current_search': self.request.GET.get('search', ''),
+            'current_inicio': self.request.GET.get('inicio', ''),
+            'current_fin': self.request.GET.get('fin', ''),
+        })
         
         return context
     

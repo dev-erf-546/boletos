@@ -1,504 +1,474 @@
-{% extends 'rifas/base.html' %}
+{% extends 'rifas/admin/base_admin.html' %}
+
+{% block title %}Gestionar Boletos - {{ rifa.nombre }}{% endblock %}
+
 {% block extra_css %}
 <style>
-
-    /* Estilos para el overlay personalizado */
-#qrOverlay {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-}
-
-#qrOverlay img {
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-}
-
-#overlayDownloadBtn, #overlayShareBtn {
-    min-width: 120px;
-    padding: 10px 15px;
-    -webkit-tap-highlight-color: transparent;
-}
-
-/* Prevenir zoom en iOS */
-@media (max-width: 768px) {
-    #qrOverlay {
-        font-size: 16px;
+    .stats-mini-card {
+        border-left: 4px solid;
+        transition: transform 0.2s;
     }
     
-    #qrOverlay button {
-        font-size: 16px;
+    .stats-mini-card:hover {
+        transform: translateY(-3px);
     }
-}
+    
+    .stats-mini-card.vendidos { border-left-color: #dc3545; }
+    .stats-mini-card.reservados { border-left-color: #ffc107; }
+    .stats-mini-card.disponibles { border-left-color: #28a745; }
+    .stats-mini-card.validacion { border-left-color: #17a2b8; }
+    
+    .table-boleto {
+        font-size: 0.9rem;
+    }
+    
+    .badge-estado {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .btn-action {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    .search-highlight {
+        background-color: #fff3cd;
+        padding: 2px 4px;
+        border-radius: 3px;
+    }
+    
+    .filters-panel {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .boleto-row {
+        transition: background-color 0.2s;
+    }
+    
+    .boleto-row:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 {% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <h1 class="mt-4">Gestión de Boletos - {{ rifa.nombre }}</h1>
-    
-    <!-- Filtros -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form id="filtroForm" class="form-inline">
-                <div class="form-group mr-3">
-                    <label for="inicio" class="mr-2">Desde:</label>
-                    <input type="number" class="form-control" id="inicio" name="inicio" min="1">
-                </div>
-                <div class="form-group mr-3">
-                    <label for="fin" class="mr-2">Hasta:</label>
-                    <input type="number" class="form-control" id="fin" name="fin" min="1">
-                </div>
-                <button type="submit" class="btn btn-primary">Filtrar</button>
-            </form>
-        </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-list-check"></i> Gestionar Boletos</h1>
+        <p class="text-muted mb-0">{{ rifa.nombre }}</p>
     </div>
-    
-    <!-- Modal para asignación -->
-    <div class="modal fade" id="asignarModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Asignar Boleto</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="asignarForm">
-                        <input type="hidden" id="boletoId">
-                        
-                        <div class="form-row">
-                            <div class="col-md-6">
-                                <h6>Datos del Participante</h6>
-                                {% include 'rifas/partials/participante_form.html' %}
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Comprobante de Pago</h6>
-                                {% include 'rifas/partials/comprobante_form.html' %}
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="confirmarAsignacion">Asignar</button>
+    <div>
+        <a href="{% url 'rifas:admin_rifa_detail' rifa.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Rifa
+        </a>
+    </div>
+</div>
+
+<!-- Estadísticas Rápidas -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stats-mini-card vendidos h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1 small">Vendidos</h6>
+                        <h4 class="mb-0 text-danger">{{ boletos_vendidos }}</h4>
+                        <small class="text-muted">{{ porcentaje_vendidos }}%</small>
+                    </div>
+                    <i class="bi bi-check-circle-fill text-danger" style="font-size: 2rem;"></i>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Listado de boletos -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered" id="boletosTable">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>Número</th>
-                            <th>Estado</th>
-                            <th>Participante</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for boleto in boletos %}
-                        <tr data-boleto-id="{{ boleto.id }}" class="{% if boleto.estado == 'V' %}table-success{% elif boleto.estado == 'R' %}table-warning{% endif %}">
-                            <td>{{ boleto.numero }}</td>
-                            <td>
-                                {{ boleto.get_estado_display }}
-                                {% if boleto.estado == 'R' %}
-                                <small class="text-muted d-block">
-                                    Reservado el: {{ boleto.fecha_reserva|date:"d/m/Y H:i" }}
-                                </small>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if boleto.participante %}
-                                    {{ boleto.participante.nombre_completo }} ({{ boleto.participante.telefono }})
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if boleto.estado == 'D' %}
-                                    <button class="btn btn-sm btn-warning reservar-btn" 
-                                        data-reservar-url="{% url 'rifas:reservar_boleto' boleto.id %}">
-                                        Reservar
-                                    </button>
-                                    {% elif boleto.estado == 'R' and request.user.is_staff %}
-                                    <button class="btn btn-sm btn-danger liberar-btn"
-                                            data-liberar-url="{% url 'rifas:liberar_boleto' boleto.id %}"
-                                            data-boleto-id="{{ boleto.id }}">
-                                        Liberar
-                                    </button>
-                                    {% endif %}
-                                
-                                {% if boleto.estado == 'V' and boleto.qr %}
-                                    <button class="btn btn-sm btn-info ver-qr-btn" 
-                                    data-qr-url="{{ boleto.qr.imagen_qr.url }}"
-                                    data-boleto-numero="{{ boleto.numero }}"
-                                    data-participante="{{ boleto.participante.nombre_completo|default:'Sin participante' }}">
-                                    Ver QR
-                                    </button>
-                                {% else %}
-                                    <button class="btn btn-sm btn-primary asignar-btn" 
-                                            data-boleto-id="{{ boleto.id }}"
-                                            {% if boleto.estado == 'V' %}disabled{% endif %}>
-                                        Asignar
-                                    </button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                
-
-                <!-- Sistema alternativo para iOS - No usa modal tradicional -->
-                <div id="qrOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); z-index: 2000; overflow-y: auto;">
-                    <div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
-                        <button id="closeQrOverlay" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 24px;">
-                            <i class="bi bi-x-circle"></i>
-                        </button>
-                        
-                        <div style="background: white; border-radius: 10px; padding: 20px; max-width: 90%; width: 400px;">
-                            <h4 style="text-align: center; margin-bottom: 20px;">Código QR del Boleto</h4>
-                            
-                            <div id="qrImageContainer" style="margin: 0 auto; text-align: center;">
-                                <img id="qrImage" src="" alt="Código QR" style="max-width: 100%; height: auto;">
-                            </div>
-                            
-                            <div style="margin-top: 20px; text-align: center;">
-                                <p><strong>Número:</strong> <span id="qrBoletoNumero"></span></p>
-                                <p><strong>Participante:</strong> <span id="qrParticipanteNombre"></span></p>
-                            </div>
-                            
-                            <div style="margin-top: 30px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-                                <button id="overlayShareBtn" class="btn btn-info">
-                                    <i class="bi bi-share"></i> Compartir
-                                </button>
-                                <button id="overlayDownloadBtn" class="btn btn-primary">
-                                    <i class="bi bi-download"></i> Descargar
-                                </button>
-                            </div>
-                        </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-mini-card reservados h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1 small">Reservados</h6>
+                        <h4 class="mb-0 text-warning">{{ boletos_reservados }}</h4>
+                        <small class="text-muted">{{ porcentaje_reservados }}%</small>
                     </div>
+                    <i class="bi bi-clock-history text-warning" style="font-size: 2rem;"></i>
                 </div>
-
-                <!-- Fin modal QR -->
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-mini-card disponibles h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1 small">Disponibles</h6>
+                        <h4 class="mb-0 text-success">{{ boletos_disponibles }}</h4>
+                        <small class="text-muted">{{ porcentaje_disponibles }}%</small>
+                    </div>
+                    <i class="bi bi-ticket-perforated text-success" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-mini-card validacion h-100">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1 small">En Validación</h6>
+                        <h4 class="mb-0 text-info">{{ boletos_validacion }}</h4>
+                        <small class="text-muted">Total: {{ total_boletos }}</small>
+                    </div>
+                    <i class="bi bi-hourglass-split text-info" style="font-size: 2rem;"></i>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Panel de Filtros y Búsqueda -->
+<div class="filters-panel">
+    <form method="get" id="filtroForm">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label"><i class="bi bi-search"></i> Búsqueda</label>
+                <input type="text" class="form-control" name="search" 
+                       placeholder="Número, participante o teléfono..." 
+                       value="{{ current_search }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label"><i class="bi bi-funnel"></i> Estado</label>
+                <select class="form-select" name="estado">
+                    <option value="">Todos</option>
+                    <option value="D" {% if current_estado == 'D' %}selected{% endif %}>Disponible</option>
+                    <option value="R" {% if current_estado == 'R' %}selected{% endif %}>Reservado</option>
+                    <option value="V" {% if current_estado == 'V' %}selected{% endif %}>Vendido</option>
+                    <option value="E" {% if current_estado == 'E' %}selected{% endif %}>En Validación</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Desde</label>
+                <input type="number" class="form-control" name="inicio" 
+                       placeholder="Número" min="1" value="{{ current_inicio }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Hasta</label>
+                <input type="number" class="form-control" name="fin" 
+                       placeholder="Número" min="1" value="{{ current_fin }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel-fill"></i> Filtrar
+                </button>
+            </div>
+        </div>
+        {% if current_search or current_estado or current_inicio or current_fin %}
+        <div class="mt-2">
+            <a href="{% url 'rifas:admin_gestion_boletos' rifa.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Limpiar Filtros
+            </a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Tabla de Boletos -->
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-ticket-perforated"></i> Listado de Boletos</h5>
+        <span class="badge bg-light text-dark">{{ boletos|length }} resultado(s)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0 table-boleto">
+                <thead class="table-light">
+                    <tr>
+                        <th width="10%">Número</th>
+                        <th width="15%">Estado</th>
+                        <th width="30%">Participante</th>
+                        <th width="20%">Información</th>
+                        <th width="25%">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for boleto in boletos %}
+                    <tr class="boleto-row {% if boleto.estado == 'V' %}table-success{% elif boleto.estado == 'R' %}table-warning{% elif boleto.estado == 'E' %}table-info{% endif %}">
+                        <td>
+                            <strong class="fs-5">#{{ boleto.numero }}</strong>
+                        </td>
+                        <td>
+                            {% if boleto.estado == 'D' %}
+                                <span class="badge bg-success badge-estado">Disponible</span>
+                            {% elif boleto.estado == 'R' %}
+                                <span class="badge bg-warning badge-estado">Reservado</span>
+                                {% if boleto.fecha_reserva %}
+                                <br><small class="text-muted">{{ boleto.fecha_reserva|date:"d/m/Y H:i" }}</small>
+                                {% endif %}
+                            {% elif boleto.estado == 'V' %}
+                                <span class="badge bg-danger badge-estado">Vendido</span>
+                                {% if boleto.fecha_venta %}
+                                <br><small class="text-muted">{{ boleto.fecha_venta|date:"d/m/Y H:i" }}</small>
+                                {% endif %}
+                            {% elif boleto.estado == 'E' %}
+                                <span class="badge bg-info badge-estado">En Validación</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if boleto.participante %}
+                                <strong>{{ boleto.participante.nombre_completo }}</strong><br>
+                                <small class="text-muted">
+                                    <i class="bi bi-telephone"></i> {{ boleto.participante.telefono }}
+                                    {% if boleto.participante.email %}
+                                    <br><i class="bi bi-envelope"></i> {{ boleto.participante.email }}
+                                    {% endif %}
+                                </small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if boleto.qr %}
+                                <span class="badge bg-info"><i class="bi bi-qr-code"></i> QR Generado</span>
+                            {% endif %}
+                            {% if boleto.comprobante %}
+                                <br><span class="badge bg-secondary">
+                                    <i class="bi bi-receipt"></i> Comprobante
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                {% if boleto.estado == 'D' %}
+                                    <button class="btn btn-warning btn-action reservar-btn" 
+                                        data-reservar-url="{% url 'rifas:reservar_boleto' boleto.id %}"
+                                        title="Reservar boleto">
+                                        <i class="bi bi-clock"></i>
+                                    </button>
+                                    <button class="btn btn-primary btn-action asignar-btn" 
+                                        data-boleto-id="{{ boleto.id }}"
+                                        title="Asignar boleto">
+                                        <i class="bi bi-person-plus"></i>
+                                    </button>
+                                {% elif boleto.estado == 'R' %}
+                                    <button class="btn btn-danger btn-action liberar-btn"
+                                        data-liberar-url="{% url 'rifas:liberar_boleto' boleto.id %}"
+                                        data-boleto-id="{{ boleto.id }}"
+                                        title="Liberar boleto">
+                                        <i class="bi bi-unlock"></i>
+                                    </button>
+                                    <button class="btn btn-primary btn-action asignar-btn" 
+                                        data-boleto-id="{{ boleto.id }}"
+                                        title="Asignar boleto">
+                                        <i class="bi bi-person-plus"></i>
+                                    </button>
+                                {% endif %}
+                                
+                                {% if boleto.estado == 'V' and boleto.qr %}
+                                    <button class="btn btn-info btn-action ver-qr-btn" 
+                                        data-qr-url="{{ boleto.qr.imagen_qr.url }}"
+                                        data-boleto-numero="{{ boleto.numero }}"
+                                        data-participante="{{ boleto.participante.nombre_completo|default:'Sin participante' }}"
+                                        title="Ver QR">
+                                        <i class="bi bi-qr-code"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                            <p class="text-muted mt-3">No se encontraron boletos con los filtros aplicados</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <div class="card-footer">
+        <nav aria-label="Paginación">
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Anterior</a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Última</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para Asignar Boleto -->
+<div class="modal fade" id="asignarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> Asignar Boleto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="asignarForm">
+                    <input type="hidden" id="boletoId">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">Datos del Participante</h6>
+                            {% include 'rifas/partials/participante_form.html' %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">Comprobante de Pago</h6>
+                            {% include 'rifas/partials/comprobante_form.html' %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarAsignacion">
+                    <i class="bi bi-check-circle"></i> Asignar Boleto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay para QR -->
+<div id="qrOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); z-index: 2000; overflow-y: auto;">
+    <div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+        <button id="closeQrOverlay" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 24px; z-index: 2001;">
+            <i class="bi bi-x-circle"></i>
+        </button>
+        
+        <div style="background: white; border-radius: 15px; padding: 30px; max-width: 90%; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <h4 class="text-center mb-4"><i class="bi bi-qr-code"></i> Código QR del Boleto</h4>
+            
+            <div id="qrImageContainer" class="text-center mb-4">
+                <img id="qrImage" src="" alt="Código QR" style="max-width: 100%; height: auto; border-radius: 10px;">
+            </div>
+            
+            <div class="text-center mb-4">
+                <p class="mb-1"><strong>Número:</strong> <span id="qrBoletoNumero" class="text-primary"></span></p>
+                <p class="mb-0"><strong>Participante:</strong> <span id="qrParticipanteNombre"></span></p>
+            </div>
+            
+            <div class="d-flex justify-content-center gap-2">
+                <button id="overlayShareBtn" class="btn btn-info">
+                    <i class="bi bi-share"></i> Compartir
+                </button>
+                <button id="overlayDownloadBtn" class="btn btn-primary">
+                    <i class="bi bi-download"></i> Descargar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        try {
-            // 1. Inicialización del Modal
-            const asignarModalEl = document.getElementById('asignarModal');
-            if (!asignarModalEl) {
-                console.log('Modal de asignación no encontrado - No es la página de gestión');
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de asignación
+    const asignarModalEl = document.getElementById('asignarModal');
+    const asignarModal = asignarModalEl ? new bootstrap.Modal(asignarModalEl) : null;
+    let currentBoletoId = null;
+    
+    // Abrir modal de asignación
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.asignar-btn')) {
+            const btn = e.target.closest('.asignar-btn');
+            currentBoletoId = btn.dataset.boletoId;
+            document.getElementById('boletoId').value = currentBoletoId;
+            if (asignarModal) asignarModal.show();
+        }
+    });
+    
+    // Confirmar asignación
+    const confirmarBtn = document.getElementById('confirmarAsignacion');
+    if (confirmarBtn) {
+        confirmarBtn.addEventListener('click', async function() {
+            if (!currentBoletoId) {
+                alert('No se ha seleccionado un boleto');
                 return;
             }
             
-            const asignarModal = new bootstrap.Modal(asignarModalEl);
-            let currentBoletoId = null;
-    
-            // 2. Delegación de Eventos para Botones Asignar
-            document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('asignar-btn')) {
-                    currentBoletoId = e.target.dataset.boletoId;
-                    const boletoIdInput = document.getElementById('boletoId');
-                    
-                    if (boletoIdInput) {
-                        boletoIdInput.value = currentBoletoId;
-                        asignarModal.show();
-                    } else {
-                        console.error('Input hidden para boletoId no encontrado');
-                    }
-                }
+            const formData = new FormData();
+            formData.append('boleto_id', currentBoletoId);
+            
+            ['nombre', 'email', 'telefono'].forEach(field => {
+                const input = document.getElementById(`id_${field}`);
+                if (input) formData.append(`participante[${field}]`, input.value);
             });
-    
-            // 3. Manejo del Formulario de Asignación
-            const confirmarBtn = document.getElementById('confirmarAsignacion');
-            if (confirmarBtn) {
-                confirmarBtn.addEventListener('click', async function() {
-                    if (!currentBoletoId) {
-                        alert('No se ha seleccionado un boleto');
-                        return;
-                    }
-    
-                    // Validación de campos requeridos
-                    const requiredFields = ['nombre', 'telefono'];
-                    const missingFields = [];
-                    
-                    requiredFields.forEach(field => {
-                        const input = document.getElementById(`id_${field}`);
-                        if (!input || !input.value.trim()) {
-                            missingFields.push(field);
-                            input?.classList.add('is-invalid');
-                        } else {
-                            input?.classList.remove('is-invalid');
-                        }
-                    });
-    
-                    if (missingFields.length > 0) {
-                        alert(`Por favor complete los campos requeridos: ${missingFields.join(', ')}`);
-                        return;
-                    }
-    
-                    try {
-                        const formData = new FormData();
-                        formData.append('boleto_id', currentBoletoId);
-                        
-                        // Datos del participante
-                        ['nombre', 'email', 'telefono'].forEach(field => {
-                            const input = document.getElementById(`id_${field}`);
-                            if (input) formData.append(`participante[${field}]`, input.value);
-                        });
-    
-                        // Datos del comprobante
-                        const archivoInput = document.getElementById('id_archivo');
-                        if (archivoInput?.files[0]) {
-                            formData.append('comprobante[archivo]', archivoInput.files[0]);
-                            formData.append('comprobante[monto]', document.getElementById('id_monto')?.value || '');
-                            formData.append('comprobante[metodo_pago]', document.getElementById('id_metodo_pago')?.value || '');
-                        }
-    
-                        // CSRF Token
-                        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-                        if (!csrfToken) {
-                            throw new Error('Token CSRF no encontrado');
-                        }
-    
-                        // Mostrar indicador de carga
-                        confirmarBtn.disabled = true;
-                        confirmarBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-    
-                        // Enviar datos al servidor
-                        const response = await fetch('{% url "rifas:admin_asignar_boleto" %}', {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-CSRFToken': csrfToken
-                            }
-                        });
-    
-                        const data = await response.json();
-    
-                        if (!response.ok) {
-                            throw new Error(data.error || 'Error en la solicitud');
-                        }
-    
-                        if (data.success) {
-                            // Recargar la página para ver cambios
-                            window.location.reload();
-                        } else {
-                            alert('Error: ' + (data.message || 'Error al asignar boleto'));
-                        }
-                    } catch (error) {
-                        console.error('Error al asignar boleto:', error);
-                        alert('Error: ' + error.message);
-                    } finally {
-                        // Restaurar botón
-                        if (confirmarBtn) {
-                            confirmarBtn.disabled = false;
-                            confirmarBtn.textContent = 'Asignar';
-                        }
-                    }
-                });
-            }
-    
-            // 4. Validación en tiempo real para email
-            const emailInput = document.getElementById('id_email');
-            if (emailInput) {
-                emailInput.addEventListener('input', function() {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    this.classList.toggle('is-invalid', !emailRegex.test(this.value));
-                });
-            }
-    
-            // 5. Manejo del formulario de filtrado
-            const filtroForm = document.getElementById('filtroForm');
-            if (filtroForm) {
-                filtroForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const inicio = document.getElementById('inicio')?.value;
-                    const fin = document.getElementById('fin')?.value;
-                    
-                    if (inicio && fin) {
-                        // Recargar la página con los parámetros de filtro
-                        window.location.search = `?inicio=${inicio}&fin=${fin}`;
-                    }
-                });
-            }
-    
-        } catch (error) {
-            console.error('Error en la inicialización:', error);
-            alert('Ocurrió un error al cargar la página. Por favor recarga.');
-        }
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Variables globales
-        let currentQrUrl = '';
-        const qrOverlay = document.getElementById('qrOverlay');
-        
-        // Manejador para mostrar el QR
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('ver-qr-btn')) {
-                const button = e.target.closest('.ver-qr-btn');
-                currentQrUrl = button.getAttribute('data-qr-url');
-                
-                // Actualizar contenido
-                document.getElementById('qrImage').src = currentQrUrl;
-                document.getElementById('qrBoletoNumero').textContent = button.getAttribute('data-boleto-numero');
-                document.getElementById('qrParticipanteNombre').textContent = button.getAttribute('data-participante');
-                
-                // Mostrar overlay
-                qrOverlay.style.display = 'block';
-                document.body.style.overflow = 'hidden';
-            }
-        });
-        
-        // Cerrar overlay
-        document.getElementById('closeQrOverlay').addEventListener('click', function() {
-            qrOverlay.style.display = 'none';
-            document.body.style.overflow = 'auto';
-        });
-        
-        // Descargar QR - Solución definitiva para iOS
-        document.getElementById('overlayDownloadBtn').addEventListener('click', function() {
-            if (!currentQrUrl) return;
             
-            const numero = document.getElementById('qrBoletoNumero').textContent;
-            const filename = `boleto_${numero}_qr.png`;
-            
-            // Solución universal que funciona en iOS
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = currentQrUrl;
-            a.download = filename;
-            
-            // Especial para iOS
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                a.target = '_blank'; // Necesario para iOS
-                document.body.appendChild(a);
-                const event = new MouseEvent('click', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                });
-                a.dispatchEvent(event);
-                document.body.removeChild(a);
-                
-                // Instrucción alternativa
-                alert('En iPhone: Mantén presionada la imagen QR y selecciona "Guardar imagen"');
-            } else {
-                // Para otros navegadores
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+            const archivoInput = document.getElementById('id_archivo');
+            if (archivoInput?.files[0]) {
+                formData.append('comprobante[archivo]', archivoInput.files[0]);
             }
-        });
-        
-        // Compartir QR
-        document.getElementById('overlayShareBtn').addEventListener('click', async function() {
-            if (!currentQrUrl) return;
             
-            const numero = document.getElementById('qrBoletoNumero').textContent;
-            const participante = document.getElementById('qrParticipanteNombre').textContent;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: `Boleto ${numero}`,
-                        text: `Boleto de rifa para ${participante}`,
-                        url: currentQrUrl,
-                    });
-                } catch (err) {
-                    console.log('Error al compartir:', err);
-                    if (err.name !== 'AbortError') {
-                        copyToClipboard(currentQrUrl);
-                        alert('Enlace copiado: ' + currentQrUrl);
-                    }
-                }
-            } else {
-                copyToClipboard(currentQrUrl);
-                alert('Enlace copiado: ' + currentQrUrl);
-            }
-        });
-        
-        // Función auxiliar para copiar al portapapeles
-        function copyToClipboard(text) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            document.body.appendChild(textarea);
-            textarea.select();
+            confirmarBtn.disabled = true;
+            confirmarBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+            
             try {
-                document.execCommand('copy');
-            } catch (err) {
-                console.error('Error al copiar:', err);
-            }
-            document.body.removeChild(textarea);
-        }
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Delegación de eventos para botones de reserva
-        document.addEventListener('click', async function(e) {
-            if (e.target.classList.contains('reservar-btn')) {
-                const boletoId = e.target.dataset.boletoId;
-                const reservarUrl = e.target.dataset.reservarUrl;
-                e.target.disabled = true;
-                e.target.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Reservando...';
+                const response = await fetch('{% url "rifas:admin_asignar_boleto" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-CSRFToken': csrfToken}
+                });
                 
-                try {
-                    const response = await fetch(reservarUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'same-origin'
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Recargar o actualizar la interfaz
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + (data.error || 'Error al reservar'));
-                        e.target.disabled = false;
-                        e.target.textContent = 'Reservar';
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Error de conexión');
-                    e.target.disabled = false;
-                    e.target.textContent = 'Reservar';
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Error al asignar boleto'));
                 }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                confirmarBtn.disabled = false;
+                confirmarBtn.innerHTML = '<i class="bi bi-check-circle"></i> Asignar Boleto';
             }
         });
-    });
-
-    // Liberar boleto
+    }
+    
+    // Reservar boleto
     document.addEventListener('click', async function(e) {
-        if (e.target.classList.contains('liberar-btn')) {
-            const boletoId = e.target.dataset.boletoId;
-            const liberarUrl = e.target.dataset.liberarUrl;
-            if (!confirm('¿Estás seguro de liberar este boleto?')) return;
-            
-            e.target.disabled = true;
-            e.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        if (e.target.closest('.reservar-btn')) {
+            const btn = e.target.closest('.reservar-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
             
             try {
-                const response = await fetch(liberarUrl, {
+                const response = await fetch(btn.dataset.reservarUrl, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
@@ -507,22 +477,113 @@
                 });
                 
                 const data = await response.json();
-                
                 if (data.success) {
-                    // Recargar para ver cambios
                     window.location.reload();
                 } else {
-                    alert('Error: ' + (data.error || 'Error al liberar'));
-                    e.target.disabled = false;
-                    e.target.textContent = 'Liberar';
+                    alert('Error: ' + (data.error || 'Error al reservar'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-clock"></i>';
                 }
             } catch (error) {
-                console.error('Error:', error);
                 alert('Error de conexión');
-                e.target.disabled = false;
-                e.target.textContent = 'Liberar';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-clock"></i>';
             }
         }
     });
+    
+    // Liberar boleto
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.liberar-btn')) {
+            if (!confirm('¿Estás seguro de liberar este boleto?')) return;
+            
+            const btn = e.target.closest('.liberar-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            
+            try {
+                const response = await fetch(btn.dataset.liberarUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Error al liberar'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-unlock"></i>';
+                }
+            } catch (error) {
+                alert('Error de conexión');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-unlock"></i>';
+            }
+        }
+    });
+    
+    // Ver QR
+    let currentQrUrl = '';
+    const qrOverlay = document.getElementById('qrOverlay');
+    
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.ver-qr-btn')) {
+            const btn = e.target.closest('.ver-qr-btn');
+            currentQrUrl = btn.dataset.qrUrl;
+            
+            document.getElementById('qrImage').src = currentQrUrl;
+            document.getElementById('qrBoletoNumero').textContent = btn.dataset.boletoNumero;
+            document.getElementById('qrParticipanteNombre').textContent = btn.dataset.participante;
+            
+            qrOverlay.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+    });
+    
+    document.getElementById('closeQrOverlay').addEventListener('click', function() {
+        qrOverlay.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    });
+    
+    // Descargar QR
+    document.getElementById('overlayDownloadBtn').addEventListener('click', function() {
+        if (!currentQrUrl) return;
+        
+        const numero = document.getElementById('qrBoletoNumero').textContent;
+        const a = document.createElement('a');
+        a.href = currentQrUrl;
+        a.download = `boleto_${numero}_qr.png`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+    
+    // Compartir QR
+    document.getElementById('overlayShareBtn').addEventListener('click', async function() {
+        if (!currentQrUrl) return;
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `Boleto ${document.getElementById('qrBoletoNumero').textContent}`,
+                    url: currentQrUrl
+                });
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    navigator.clipboard.writeText(currentQrUrl);
+                    alert('Enlace copiado al portapapeles');
+                }
+            }
+        } else {
+            navigator.clipboard.writeText(currentQrUrl);
+            alert('Enlace copiado al portapapeles');
+        }
+    });
+});
 </script>
 {% endblock %}
