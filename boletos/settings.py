@@ -192,8 +192,8 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'  # 'mandatory' o 'optional'
 # Cerrar sesión con GET
 ACCOUNT_LOGOUT_ON_GET = True  # Cierra sesión con solo visitar /accounts/logout/
 
-# URLs de redirección
-LOGIN_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del login (fallback)
+# URLs de redirección (el adaptador personalizado tiene prioridad)
+LOGIN_REDIRECT_URL = 'rifas:admin_dashboard'  # URL por defecto (el adaptador puede sobrescribir esto)
 LOGOUT_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del logout
 
 # Adaptador personalizado para redirección
