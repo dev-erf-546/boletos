@@ -1,13 +1,14 @@
 from allauth.account.adapter import DefaultAccountAdapter
 from django.urls import reverse
+from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 
 class CustomAccountAdapter(DefaultAccountAdapter):
     def get_login_redirect_url(self, request):
         """
-        Redirige a los usuarios al panel admin después del login.
-        Todos los usuarios autenticados van al admin-panel.
+        Redirige siempre al panel admin después del login.
+        Solo administradores pueden iniciar sesión.
         """
-        # En este punto, el usuario ya debería estar autenticado
         # Redirigir siempre al panel admin
         if hasattr(request, 'user') and request.user.is_authenticated:
             return reverse('rifas:admin_dashboard')
@@ -17,6 +18,15 @@ class CustomAccountAdapter(DefaultAccountAdapter):
     
     def is_open_for_signup(self, request):
         """
-        Permite el registro de nuevos usuarios
+        Deshabilita el registro público. Solo administradores pueden crear cuentas.
         """
-        return True
+        return False
+    
+    def login(self, request, user):
+        """
+        Verificar que solo staff pueda iniciar sesión antes de hacer login.
+        """
+        if not user.is_staff:
+            messages.error(request, "Solo los administradores pueden iniciar sesión.")
+            raise PermissionDenied("Solo los administradores pueden iniciar sesión.")
+        return super().login(request, user)

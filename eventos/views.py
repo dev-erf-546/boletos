@@ -81,7 +81,7 @@ class RifaDetailView(DetailView):
         })
         return context
 
-class SeleccionNumeroView(LoginRequiredMixin, View):
+class SeleccionNumeroView(View):
     def get(self, request, rifa_id):
         rifa = get_object_or_404(Rifa, id=rifa_id, activa=True)
         return render(request, 'rifas/seleccion_numero.html', {
@@ -129,29 +129,22 @@ class SeleccionNumeroView(LoginRequiredMixin, View):
                 boletos.append(boleto)
             
             # Todos disponibles, proceder con reserva
-            participante, created = Participante.objects.get_or_create(
-                user=request.user,
-                defaults={
-                    'nombre_completo': request.user.get_full_name(),
-                    'telefono': request.user.profile.telefono if hasattr(request.user, 'profile') else '',
-                    'email': request.user.email
-                }
-            )
-            
+            # Guardar los números seleccionados en sesión para el registro
             for boleto in boletos:
-                boleto.reservar(participante)
+                boleto.estado = 'R'  # Reservar temporalmente
+                boleto.save()
         
         request.session['boletos_reservados'] = [b.id for b in boletos]
         return redirect('rifas:registro_participante')
 
-class RegistroParticipanteView(LoginRequiredMixin, View):
+class RegistroParticipanteView(View):
     def get(self, request):
         boletos_ids = request.session.get('boletos_reservados', [])
         if not boletos_ids:
-            return redirect('listado_rifas')
+            return redirect('rifas:listado_rifas')
         
         boletos = Boleto.objects.filter(id__in=boletos_ids, estado='R')
-        form = RegistroParticipanteForm(instance=request.user.participante)
+        form = RegistroParticipanteForm()
         
         return render(request, 'rifas/registro_participante.html', {
             'form': form,
@@ -161,17 +154,19 @@ class RegistroParticipanteView(LoginRequiredMixin, View):
     def post(self, request):
         boletos_ids = request.session.get('boletos_reservados', [])
         if not boletos_ids:
-            return redirect('listado_rifas')
+            return redirect('rifas:listado_rifas')
         
         boletos = Boleto.objects.filter(id__in=boletos_ids, estado='R')
-        participante = request.user.participante
-        form = RegistroParticipanteForm(request.POST, instance=participante)
+        form = RegistroParticipanteForm(request.POST)
         
         if form.is_valid():
-            form.save()
+            # Crear participante sin usuario
+            participante = form.save(commit=False)
+            participante.save()
             
-            # Confirmar la compra
+            # Asignar participante a los boletos y cambiar estado
             for boleto in boletos:
+                boleto.participante = participante
                 boleto.estado = 'E'  # En validación
                 boleto.fecha_venta = timezone.now()
                 boleto.save()
@@ -185,9 +180,9 @@ class RegistroParticipanteView(LoginRequiredMixin, View):
             'boletos': boletos
         })
 
-class SubirComprobanteView(LoginRequiredMixin, View):
+class SubirComprobanteView(View):
     def get(self, request, boleto_id):
-        boleto = get_object_or_404(Boleto, id=boleto_id, participante__user=request.user, estado='E')
+        boleto = get_object_or_404(Boleto, id=boleto_id, estado='E')
         form = SubirComprobanteForm()
         
         return render(request, 'rifas/subir_comprobante.html', {
@@ -196,7 +191,7 @@ class SubirComprobanteView(LoginRequiredMixin, View):
         })
     
     def post(self, request, boleto_id):
-        boleto = get_object_or_404(Boleto, id=boleto_id, participante__user=request.user, estado='E')
+        boleto = get_object_or_404(Boleto, id=boleto_id, estado='E')
         form = SubirComprobanteForm(request.POST, request.FILES)
         
         if form.is_valid():
@@ -223,12 +218,19 @@ class MisBoletosView(LoginRequiredMixin, ListView):
 
 class MostrarQRView(View):
     def get(self, request, boleto_id):
-        boleto = get_object_or_404(Boleto, id=boleto_id, participante__user=request.user, estado='V')
+        boleto = get_object_or_404(Boleto, id=boleto_id, estado='V')
         
+        # Crear o regenerar QR si no existe o si la imagen no está generada
         if not hasattr(boleto, 'qr'):
             qr = QRBoleto.objects.create(boleto=boleto)
-            qr.imagen_qr = generar_qr_boleto(qr)
-            qr.save()
+            generar_qr_boleto(qr)  # La función guarda la imagen internamente
+        elif not boleto.qr.imagen_qr:
+            # Si existe el QR pero no tiene imagen, generarla
+            generar_qr_boleto(boleto.qr)
+        # Si se solicita regenerar (parámetro ?regenerar=1)
+        elif request.GET.get('regenerar') == '1':
+            generar_qr_boleto(boleto.qr)
+            messages.success(request, "Boleto regenerado con el nuevo diseño")
         
         return render(request, 'rifas/mostrar_qr.html', {
             'boleto': boleto
@@ -533,6 +535,14 @@ class AdminAsignarBoletoView(LoginRequiredMixin, UserPassesTestMixin, View):
             if not all([boleto_id, participante_nombre, participante_telefono]):
                 return JsonResponse({'error': 'Datos incompletos'}, status=400)
             
+            # Validar que el teléfono tenga exactamente 10 dígitos
+            import re
+            # Remover espacios, guiones y otros caracteres no numéricos
+            telefono_limpio = re.sub(r'\D', '', participante_telefono)
+            if len(telefono_limpio) != 10:
+                return JsonResponse({'error': 'El teléfono debe tener exactamente 10 dígitos'}, status=400)
+            participante_telefono = telefono_limpio
+            
             # Procesar boleto y participante
             boleto = get_object_or_404(Boleto, pk=boleto_id)
             
@@ -561,12 +571,16 @@ class AdminAsignarBoletoView(LoginRequiredMixin, UserPassesTestMixin, View):
                 )
                 comprobante.save()
             
-            # Generar QR
+            # Generar QR y boleto completo
             qr_instance, created = QRBoleto.objects.get_or_create(
                 boleto=boleto,
                 defaults={'codigo': str(uuid.uuid4())}
             )
-            generar_qr_boleto(qr_instance)
+            # Generar la imagen completa del boleto (incluye QR)
+            if generar_qr_boleto(qr_instance):
+                logger.info(f"Boleto {boleto.numero} generado exitosamente")
+            else:
+                logger.error(f"Error al generar boleto {boleto.numero}")
             
             return JsonResponse({
                 'success': True,

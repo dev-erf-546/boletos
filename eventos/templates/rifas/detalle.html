@@ -3,7 +3,13 @@
 {% block title %}{{ rifa.nombre }}{% endblock %}
 
 {% block extra_css %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <style>
+    /* Optimizaciones para iOS */
+    * {
+        -webkit-tap-highlight-color: transparent;
+    }
+    
     .rifa-hero {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -43,6 +49,7 @@
         padding: 1rem;
         background: white;
         border-radius: 10px;
+        -webkit-overflow-scrolling: touch; /* Suaviza el scroll en iOS */
     }
     
     .ticket {
@@ -58,6 +65,8 @@
         transition: all 0.2s ease;
         position: relative;
         overflow: hidden;
+        -webkit-tap-highlight-color: transparent; /* Elimina el highlight azul en iOS */
+        touch-action: manipulation; /* Mejora la respuesta táctil */
     }
     
     .ticket::before {
@@ -81,9 +90,18 @@
         border-color: #1e7e34;
     }
     
-    .ticket.available:hover {
-        transform: scale(1.1);
+    .ticket.available:hover,
+    .ticket.available:active {
+        transform: scale(1.05);
         box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+    }
+    
+    /* Mejor feedback táctil en móviles */
+    @media (hover: none) and (pointer: coarse) {
+        .ticket.available:active {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
     }
     
     .ticket.sold {
@@ -177,14 +195,198 @@
         border-radius: 10px;
     }
     
+    /* Estilos para iPhone y dispositivos móviles */
     @media (max-width: 768px) {
+        .rifa-hero {
+            padding: 1.5rem 0;
+            margin-bottom: 1rem;
+            border-radius: 10px;
+        }
+        
+        .rifa-hero h1 {
+            font-size: 1.5rem;
+        }
+        
+        .stats-card {
+            margin-bottom: 0.75rem;
+        }
+        
+        .ticket-grid-container {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 10px;
+        }
+        
         .ticket-grid {
             grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
             gap: 8px;
+            padding: 0.75rem;
+            max-height: none; /* Permite scroll completo en móvil */
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .ticket {
+            font-size: 0.75rem;
+            min-height: 50px;
+            border-width: 1.5px;
+        }
+        
+        .controls-panel {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .summary-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-radius: 15px 15px 0 0;
+            margin: 0;
+            padding: 1rem;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+        }
+        
+        .pagination {
+            flex-wrap: wrap;
+        }
+        
+        .pagination .page-link {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.875rem;
+        }
+    }
+    
+    /* Estilos específicos para iPhone (pantallas pequeñas) */
+    @media (max-width: 480px) {
+        .container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        
+        .ticket-grid-container {
+            padding: 0.75rem;
+        }
+        
+        .ticket-grid {
+            /* Ajuste dinámico basado en el ancho de pantalla */
+            grid-template-columns: repeat(auto-fill, minmax(calc((100vw - 3rem) / 7), 1fr));
+            gap: 6px;
+            padding: 0.5rem;
+        }
+        
+        .ticket {
+            font-size: 0.7rem;
+            min-height: calc((100vw - 3rem) / 7);
+            border-radius: 6px;
+            /* Asegurar que el texto se ajuste */
+            word-break: break-all;
+            line-height: 1.2;
+        }
+        
+        .rifa-hero {
+            padding: 1rem 0;
+        }
+        
+        .rifa-hero h1 {
+            font-size: 1.25rem;
+        }
+        
+        .rifa-hero .lead {
+            font-size: 0.9rem;
+        }
+        
+        .stats-card .card-body {
+            padding: 0.75rem;
+        }
+        
+        .stats-card h2 {
+            font-size: 1.5rem;
+        }
+        
+        .stats-card i {
+            font-size: 1.5rem !important;
+        }
+        
+        .controls-panel .row {
+            margin: 0;
+        }
+        
+        .controls-panel .col-md-4,
+        .controls-panel .col-md-3 {
+            margin-bottom: 0.75rem;
+        }
+        
+        .summary-panel {
+            padding: 0.75rem;
+        }
+        
+        .summary-panel h5 {
+            font-size: 1rem;
+        }
+        
+        .summary-panel .btn-lg {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+    
+    /* iPhone SE y pantallas muy pequeñas */
+    @media (max-width: 375px) {
+        .ticket-grid {
+            grid-template-columns: repeat(auto-fill, minmax(calc((100vw - 2.5rem) / 6), 1fr));
+            gap: 5px;
+            padding: 0.5rem;
+        }
+        
+        .ticket {
+            font-size: 0.65rem;
+            min-height: calc((100vw - 2.5rem) / 6);
+        }
+    }
+    
+    /* Optimización para iPhone en orientación horizontal */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .ticket-grid {
+            grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
+            gap: 8px;
+            max-height: 400px;
         }
         
         .ticket {
             font-size: 0.8rem;
+            min-height: 55px;
+        }
+        
+        .summary-panel {
+            position: sticky;
+            bottom: 10px;
+        }
+    }
+    
+    /* Prevenir zoom en inputs en iOS */
+    @media screen and (-webkit-min-device-pixel-ratio: 0) {
+        select,
+        textarea,
+        input[type="text"],
+        input[type="number"],
+        input[type="search"] {
+            font-size: 16px !important; /* Previene zoom automático en iOS */
+        }
+    }
+    
+    /* Ajustes específicos para Safari iOS */
+    @supports (-webkit-touch-callout: none) {
+        .ticket-grid {
+            /* Mejora el rendimiento en Safari iOS */
+            will-change: scroll-position;
+        }
+        
+        .ticket {
+            /* Mejora la respuesta táctil */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
     }
 </style>
@@ -386,15 +588,9 @@
                 <h4 class="mb-0"><strong>Total:</strong> $<span id="totalToPay" class="text-success">0.00</span></h4>
             </div>
             <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                {% if user.is_authenticated %}
                 <a href="{% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary btn-lg" id="buyBtn" style="display: none;">
                     <i class="bi bi-cart-plus"></i> Proceder a Comprar
                 </a>
-                {% else %}
-                <a href="{% url 'account_login' %}?next={% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary btn-lg" id="buyBtn" style="display: none;">
-                    <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión para Comprar
-                </a>
-                {% endif %}
                 <a href="https://wa.me/529933933115?text=" class="btn btn-success btn-lg" id="whatsappBtn" style="display: none;" target="_blank">
                     <i class="bi bi-whatsapp"></i> Contactar por WhatsApp
                 </a>

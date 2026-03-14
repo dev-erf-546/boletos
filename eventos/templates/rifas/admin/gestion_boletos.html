@@ -265,7 +265,7 @@
                                     </button>
                                 {% endif %}
                                 
-                                {% if boleto.estado == 'V' and boleto.qr %}
+                                {% if boleto.estado == 'V' and boleto.qr and boleto.qr.imagen_qr %}
                                     <button class="btn btn-info btn-action ver-qr-btn" 
                                         data-qr-url="{{ boleto.qr.imagen_qr.url }}"
                                         data-boleto-numero="{{ boleto.numero }}"
@@ -407,6 +407,62 @@ document.addEventListener('DOMContentLoaded', function() {
             currentBoletoId = btn.dataset.boletoId;
             document.getElementById('boletoId').value = currentBoletoId;
             if (asignarModal) asignarModal.show();
+            
+            // Configurar validación en tiempo real del teléfono cuando se abre el modal
+            setTimeout(function() {
+                const telefonoInput = document.getElementById('id_telefono');
+                if (telefonoInput) {
+                    // Limpiar eventos anteriores si existen
+                    telefonoInput.removeEventListener('input', telefonoInput._validationHandler);
+                    telefonoInput.removeEventListener('blur', telefonoInput._blurHandler);
+                    
+                    // Validación en tiempo real: solo números, máximo 10 dígitos
+                    telefonoInput._validationHandler = function(e) {
+                        // Remover cualquier carácter que no sea número
+                        let value = e.target.value.replace(/\D/g, '');
+                        // Limitar a 10 dígitos
+                        if (value.length > 10) {
+                            value = value.substring(0, 10);
+                        }
+                        e.target.value = value;
+                        
+                        // Actualizar clases de validación
+                        if (value.length === 10) {
+                            e.target.classList.remove('is-invalid');
+                            e.target.classList.add('is-valid');
+                        } else if (value.length > 0) {
+                            e.target.classList.remove('is-valid');
+                            e.target.classList.add('is-invalid');
+                        } else {
+                            e.target.classList.remove('is-valid', 'is-invalid');
+                        }
+                    };
+                    
+                    // Validación al perder el foco
+                    telefonoInput._blurHandler = function(e) {
+                        let value = e.target.value.replace(/\D/g, '');
+                        if (value.length > 0 && value.length !== 10) {
+                            e.target.classList.add('is-invalid');
+                            // Mostrar mensaje de error si no existe
+                            let feedback = e.target.parentNode.querySelector('.invalid-feedback');
+                            if (!feedback) {
+                                feedback = document.createElement('div');
+                                feedback.className = 'invalid-feedback';
+                                feedback.textContent = 'El teléfono debe tener exactamente 10 dígitos';
+                                e.target.parentNode.appendChild(feedback);
+                            }
+                        } else if (value.length === 10) {
+                            e.target.classList.remove('is-invalid');
+                            e.target.classList.add('is-valid');
+                            const feedback = e.target.parentNode.querySelector('.invalid-feedback');
+                            if (feedback) feedback.remove();
+                        }
+                    };
+                    
+                    telefonoInput.addEventListener('input', telefonoInput._validationHandler);
+                    telefonoInput.addEventListener('blur', telefonoInput._blurHandler);
+                }
+            }, 100);
         }
     });
     
@@ -417,6 +473,23 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!currentBoletoId) {
                 alert('No se ha seleccionado un boleto');
                 return;
+            }
+            
+            // Validar teléfono antes de enviar
+            const telefonoInput = document.getElementById('id_telefono');
+            if (telefonoInput) {
+                // Remover caracteres no numéricos
+                let telefono = telefonoInput.value.replace(/\D/g, '');
+                
+                // Validar que tenga exactamente 10 dígitos
+                if (telefono.length !== 10) {
+                    alert('El teléfono debe tener exactamente 10 dígitos');
+                    telefonoInput.focus();
+                    return;
+                }
+                
+                // Actualizar el valor del input con solo números
+                telefonoInput.value = telefono;
             }
             
             const formData = new FormData();

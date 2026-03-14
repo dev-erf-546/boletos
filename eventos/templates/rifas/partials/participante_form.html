@@ -9,8 +9,11 @@
 </div>
 
 <div class="form-group">
-    <label for="id_telefono">Teléfono</label>
-    <input type="tel" class="form-control" id="id_telefono" name="telefono">
+    <label for="id_telefono">Teléfono <small class="text-muted">(10 dígitos)</small></label>
+    <input type="tel" class="form-control" id="id_telefono" name="telefono" 
+           maxlength="10" pattern="[0-9]{10}" 
+           placeholder="1234567890" required>
+    <small class="form-text text-muted">Ingresa solo números, sin espacios ni guiones</small>
 </div>
 
 <!-- Agrega más campos según tu modelo Participante -->

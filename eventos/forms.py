@@ -92,20 +92,24 @@ class RifaForm(forms.ModelForm):
     def clean_imagen(self):
         imagen = self.cleaned_data.get('imagen', False)
         if imagen:
-            # Validar tamaño máximo (10MB)
-            max_size = 10 * 1024 * 1024  # 10MB en bytes
-            if imagen.size > max_size:
-                raise forms.ValidationError(
-                    f"La imagen es demasiado grande. Tamaño máximo permitido: 10MB. "
-                    f"Tamaño actual: {imagen.size / (1024*1024):.2f}MB"
-                )
-            
-            # Validar tipo de archivo
-            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-            if imagen.content_type not in allowed_types:
-                raise forms.ValidationError(
-                    f"Tipo de archivo no permitido. Formatos permitidos: JPEG, PNG, GIF, WebP"
-                )
+            # Verificar si es un archivo nuevo (tiene content_type) o el archivo existente
+            # Los archivos nuevos tienen content_type, los existentes no
+            if hasattr(imagen, 'content_type'):
+                # Es un archivo nuevo, validar tamaño y tipo
+                max_size = 10 * 1024 * 1024  # 10MB en bytes
+                if imagen.size > max_size:
+                    raise forms.ValidationError(
+                        f"La imagen es demasiado grande. Tamaño máximo permitido: 10MB. "
+                        f"Tamaño actual: {imagen.size / (1024*1024):.2f}MB"
+                    )
+                
+                # Validar tipo de archivo
+                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+                if imagen.content_type not in allowed_types:
+                    raise forms.ValidationError(
+                        f"Tipo de archivo no permitido. Formatos permitidos: JPEG, PNG, GIF, WebP"
+                    )
+            # Si no tiene content_type, es el archivo existente, no validar
         return imagen
     
     def clean_boletos_total(self):

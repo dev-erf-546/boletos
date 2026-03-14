@@ -7,9 +7,14 @@
     <div class="col-md-6">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white">
-                <h2 class="mb-0">Iniciar Sesión</h2>
+                <h2 class="mb-0"><i class="bi bi-shield-lock"></i> Acceso de Administrador</h2>
             </div>
             <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Acceso exclusivo para administradores.</strong> Solo personal autorizado puede iniciar sesión.
+                </div>
+                
                 {% if socialaccount_providers %}
                 <div class="socialaccount_ballot mb-4">
                     <p class="mb-3">O inicia sesión con:</p>
@@ -26,13 +31,14 @@
                     
                     {% if form.errors %}
                     <div class="alert alert-danger">
-                        Usuario o contraseña incorrectos. Por favor intenta de nuevo.
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Usuario o contraseña incorrectos. Solo administradores pueden acceder.
                     </div>
                     {% endif %}
                     
                     <div class="mb-3">
                         <label for="id_login" class="form-label">Usuario o Email</label>
-                        <input type="text" name="login" class="form-control" id="id_login" required>
+                        <input type="text" name="login" class="form-control" id="id_login" required autofocus>
                     </div>
                     
                     <div class="mb-3">
@@ -52,12 +58,14 @@
                 </form>
                 
                 <div class="mt-3 text-center">
-                    <p>¿No tienes cuenta? <a href="{{ signup_url }}">Regístrate</a></p>
-                    <hr>
                     <p class="text-muted small">
-                        <i class="bi bi-info-circle"></i> 
-                        Si eres administrador, serás redirigido al panel de administración después del login.
+                        <i class="bi bi-shield-check"></i> 
+                        Serás redirigido al panel de administración después del login.
                     </p>
+                    <hr>
+                    <a href="{% url 'rifas:listado_rifas' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> Volver al inicio
+                    </a>
                 </div>
             </div>
         </div>

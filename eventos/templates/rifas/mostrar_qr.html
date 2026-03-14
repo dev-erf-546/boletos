@@ -2,46 +2,371 @@
 
 {% block title %}Boleto #{{ boleto.numero }} - {{ boleto.rifa.nombre }}{% endblock %}
 
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: 'Montserrat', 'Roboto', 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #f5f5f5;
+        padding: 2rem 1rem;
+    }
+    
+    .boleto-container {
+        max-width: 500px;  /* Reducido de 700px a 500px (formato ticket) */
+        margin: 0 auto;
+        background: #ffffff;
+        border-top: 3px solid #000000;
+        border-left: 2px dashed #000000;
+        border-right: 2px dashed #000000;
+        border-bottom: 2px dashed #000000;
+        padding: 0;
+        position: relative;
+    }
+    
+    .boleto-content {
+        padding: 25px 20px;  /* Reducido padding lateral de 40px a 20px */
+        text-align: center;
+    }
+    
+    .boleto-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #000;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+    
+    .boleto-subtitle {
+        font-size: 1.25rem;
+        font-weight: 400;
+        color: #000;
+        margin-bottom: 20px;
+    }
+    
+    .boleto-divider {
+        width: calc(100% - 40px);  /* Reducido de 80px a 40px (menos espacio lateral) */
+        height: 1px;
+        background: #000;
+        margin: 15px auto;
+    }
+    
+    .boleto-number {
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: #000;
+        margin: 20px 0;
+        letter-spacing: 1px;
+    }
+    
+    .boleto-info {
+        text-align: left;
+        padding: 0 0 20px 0;
+    }
+    
+    .boleto-info-item {
+        margin-bottom: 12px;
+        font-size: 1rem;
+        color: #000;
+    }
+    
+    .boleto-info-label {
+        font-weight: 600;
+        display: inline;
+    }
+    
+    .boleto-info-value {
+        font-weight: 400;
+        display: inline;
+        margin-left: 8px;
+    }
+    
+    .qr-section {
+        text-align: center;
+        padding: 20px 0;
+    }
+    
+    .qr-container {
+        display: inline-block;
+        width: 220px;  /* Aumentado de 180px a 220px para mejor escaneo */
+        height: 220px;
+        background: white;
+        padding: 0;
+        margin: 0 auto;
+    }
+    
+    .qr-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+    }
+    
+    .qr-label {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #000;
+        margin-top: 10px;
+        text-transform: uppercase;
+    }
+    
+    .boleto-footer {
+        padding: 15px;
+        text-align: center;
+        font-size: 0.85rem;
+        color: #000;
+    }
+    
+    .boleto-footer-url {
+        color: #000;
+        text-decoration: none;
+    }
+    
+    .boleto-footer-url:hover {
+        text-decoration: underline;
+    }
+    
+    /* Acciones adicionales */
+    .boleto-actions {
+        max-width: 700px;
+        margin: 2rem auto 0;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-boleto {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s;
+        font-size: 0.95rem;
+    }
+    
+    .btn-boleto-primary {
+        background: #007bff;
+        color: white;
+    }
+    
+    .btn-boleto-primary:hover {
+        background: #0056b3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+    
+    .btn-boleto-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-boleto-secondary:hover {
+        background: #545b62;
+        transform: translateY(-2px);
+    }
+    
+    /* Responsive para móviles */
+    @media (max-width: 768px) {
+        body {
+            padding: 1rem 0.5rem;
+        }
+        
+        .boleto-container {
+            max-width: 100%;
+        }
+        
+        .boleto-content {
+            padding: 20px 20px;
+        }
+        
+        .boleto-title {
+            font-size: 1.5rem;
+        }
+        
+        .boleto-subtitle {
+            font-size: 1rem;
+        }
+        
+        .boleto-number {
+            font-size: 1.75rem;
+        }
+        
+        .boleto-info-item {
+            font-size: 0.9rem;
+        }
+        
+        .qr-container {
+            width: 150px;
+            height: 150px;
+        }
+        
+        .boleto-actions {
+            flex-direction: column;
+        }
+        
+        .btn-boleto {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    /* Estilos para impresión */
+    @media print {
+        body {
+            background: white;
+            padding: 0;
+        }
+        
+        .boleto-container {
+            box-shadow: none;
+            border: 2px solid #000;
+            max-width: 100%;
+        }
+        
+        .boleto-actions {
+            display: none;
+        }
+        
+        .boleto-footer {
+            border-top: 1px solid #000;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-success text-white">
-                <h2 class="mb-0">
-                    <i class="bi bi-check-circle"></i> Boleto validado
-                </h2>
+<div class="boleto-container">
+    <div class="boleto-content">
+        <!-- Título de la Rifa (centrado) -->
+        <div class="boleto-title">
+            {{ boleto.rifa.nombre|upper }}
+        </div>
+        
+        <!-- Subtítulo (centrado) -->
+        <div class="boleto-subtitle">
+            Sagrado Corazón de Jesús
+        </div>
+        
+        <!-- Línea separadora -->
+        <div class="boleto-divider"></div>
+        
+        <!-- Número de Boleto (centrado) -->
+        <div class="boleto-number">
+            BOLETO #{{ boleto.numero }}
+        </div>
+        
+        <!-- Línea separadora -->
+        <div class="boleto-divider"></div>
+        
+        <!-- Información del participante (alineado a la izquierda) -->
+        <div class="boleto-info">
+            {% if boleto.participante %}
+            <div class="boleto-info-item">
+                <span class="boleto-info-label">Participante:</span>
+                <span class="boleto-info-value">{{ boleto.participante.nombre_completo }}</span>
             </div>
-            <div class="card-body text-center">
-                <h4>Boleto #{{ boleto.numero }}</h4>
-                <p class="lead">{{ boleto.rifa.nombre }}</p>
-                
-                <div class="my-4">
-                    <img src="{{ boleto.qr.imagen_qr.url }}" alt="Código QR" class="img-fluid" style="max-width: 300px;">
-                    <p class="mt-2 text-muted">Presenta este código el día del sorteo</p>
-                </div>
-                
-                <div class="alert alert-info text-start">
-                    <h5><i class="bi bi-info-circle"></i> Instrucciones:</h5>
-                    <ol>
-                        <li>Guarda esta página o descarga la imagen QR</li>
-                        <li>Presenta este código el día del sorteo</li>
-                        <li>El código es personal e intransferible</li>
-                    </ol>
-                </div>
-                
-                <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-                    <a href="{% url 'rifas:mis_boletos' %}" class="btn btn-outline-primary">
-                        <i class="bi bi-ticket"></i> Mis boletos
-                    </a>
-                    <button class="btn btn-primary" onclick="window.print()">
-                        <i class="bi bi-printer"></i> Imprimir
-                    </button>
-                </div>
+            
+            <div class="boleto-info-item">
+                <span class="boleto-info-label">Teléfono:</span>
+                <span class="boleto-info-value">{{ boleto.participante.telefono }}</span>
             </div>
-            <div class="card-footer text-center text-muted">
-                <small>Fecha de validación: {{ boleto.qr.fecha_generacion|date:"d/m/Y H:i" }}</small>
+            {% endif %}
+            
+            <div class="boleto-info-item">
+                <span class="boleto-info-label">Fecha del sorteo:</span>
+                <span class="boleto-info-value">{{ boleto.rifa.fecha_sorteo|date:"d de F de Y" }}</span>
             </div>
         </div>
+        
+        <!-- Línea separadora -->
+        <div class="boleto-divider"></div>
+        
+        <!-- Sección QR (centrado) -->
+        <div class="qr-section">
+            {% if boleto.qr and boleto.qr.imagen_qr %}
+            <div class="qr-container">
+                <img src="{{ boleto.qr.imagen_qr.url }}" alt="Código QR Boleto #{{ boleto.numero }}">
+            </div>
+            {% else %}
+            <div class="qr-container" style="display: flex; align-items: center; justify-content: center; color: #888;">
+                <span>QR no disponible</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="boleto-footer">
+        <a href="https://pulsarmex.com/" class="boleto-footer-url" target="_blank" rel="noopener">
+            https://pulsarmex.com/
+        </a>
     </div>
 </div>
+
+<!-- Acciones -->
+<div class="boleto-actions">
+    {% if user.is_authenticated %}
+    <a href="{% url 'rifas:mis_boletos' %}" class="btn-boleto btn-boleto-secondary">
+        <i class="bi bi-ticket"></i> Mis Boletos
+    </a>
+    {% endif %}
+    <button class="btn-boleto btn-boleto-primary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Imprimir
+    </button>
+    {% if boleto.qr and boleto.qr.imagen_qr %}
+    <button class="btn-boleto btn-boleto-primary" onclick="descargarBoleto()">
+        <i class="bi bi-download"></i> Descargar Boleto
+    </button>
+    <button class="btn-boleto btn-boleto-primary" onclick="compartirWhatsApp()">
+        <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
+    </button>
+    <a href="?regenerar=1" class="btn-boleto btn-boleto-secondary" title="Regenerar boleto con nuevo diseño">
+        <i class="bi bi-arrow-clockwise"></i> Regenerar Boleto
+    </a>
+    {% endif %}
+</div>
+
+<script>
+function descargarBoleto() {
+    const qrUrl = '{{ boleto.qr.imagen_qr.url }}';
+    const numero = '{{ boleto.numero }}';
+    const filename = `boleto_${numero}_pulsarmex.png`;
+    
+    const a = document.createElement('a');
+    a.href = qrUrl;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Compartir por WhatsApp
+function compartirWhatsApp() {
+    const numero = '{{ boleto.numero }}';
+    const rifa = '{{ boleto.rifa.nombre }}';
+    const qrUrl = '{{ boleto.qr.imagen_qr.url|default:"" }}';
+    const mensaje = `🎫 *Boleto #${numero}*\n\nRifa: ${rifa}\n\nPresenta este boleto el día del sorteo.`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
+}
+</script>
 {% endblock %}
