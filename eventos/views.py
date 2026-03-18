@@ -10,14 +10,18 @@ from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404, FileResponse
 from django.db import transaction
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.http import require_POST
+from django.conf import settings
+import os
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required, user_passes_test
+
+from .mixins import StaffRequiredMixin
 
 from .models import Rifa, Boleto, Participante, ComprobantePago, QRBoleto, Notificacion
 from .forms import (
@@ -238,14 +242,11 @@ class MostrarQRView(View):
 
 # Vistas de Administración
 
-class ComprobantesPendientesView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+class ComprobantesPendientesView(StaffRequiredMixin, ListView):
     model = ComprobantePago
     template_name = 'rifas/admin/comprobantes_pendientes.html'  # Puedes renombrar este template
     context_object_name = 'comprobantes'
     paginate_by = 20  # Opcional: añade paginación
-
-    def test_func(self):
-        return self.request.user.is_staff
 
     def get_queryset(self):
         # Filtra comprobantes de boletos VENDIDOS (estado 'V')
@@ -258,8 +259,7 @@ class ComprobantesPendientesView(LoginRequiredMixin, UserPassesTestMixin, ListVi
         ).order_by('-fecha_subida')  # Ordena por fecha descendente
 
 
-@method_decorator(staff_member_required, name='dispatch')
-class ValidarComprobanteView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+class ValidarComprobanteView(StaffRequiredMixin, UpdateView):
     model = ComprobantePago
     form_class = ValidarComprobanteForm
     template_name = 'rifas/admin/validar_comprobante.html'
@@ -421,8 +421,7 @@ def descargar_qrs_aprobados(request):
     response['Content-Disposition'] = 'attachment; filename="qrs_aprobados.zip"'
     return response
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminGestionBoletosView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+class AdminGestionBoletosView(StaffRequiredMixin, ListView):
     template_name = 'rifas/admin/gestion_boletos.html'
     context_object_name = 'boletos'
     paginate_by = 50  # 50 boletos por página para mejor rendimiento
@@ -519,7 +518,7 @@ class AdminGestionBoletosView(LoginRequiredMixin, UserPassesTestMixin, ListView)
     #     return context
     
 @method_decorator(staff_member_required, name='dispatch')
-class AdminAsignarBoletoView(LoginRequiredMixin, UserPassesTestMixin, View):
+class AdminAsignarBoletoView(StaffRequiredMixin, View):
     def test_func(self):
         return self.request.user.is_staff
     
@@ -664,11 +663,8 @@ def liberar_boleto(request, boleto_id):
 
 @method_decorator(staff_member_required, name='dispatch')
 # Modificado: 2026-03-17 22:10:50 - Vista del dashboard admin con estadísticas
-class AdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class AdminDashboardView(StaffRequiredMixin, TemplateView):
     template_name = 'rifas/admin/dashboard.html'
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -704,15 +700,11 @@ class AdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         
         return context
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminRifasListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+class AdminRifasListView(StaffRequiredMixin, ListView):
     model = Rifa
     template_name = 'rifas/admin/rifas_list.html'
     context_object_name = 'rifas'
     paginate_by = 20
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def get_queryset(self):
         queryset = Rifa.objects.all().annotate(
@@ -736,15 +728,11 @@ class AdminRifasListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         
         return queryset.order_by('-fecha_creacion')
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminRifaCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+class AdminRifaCreateView(StaffRequiredMixin, CreateView):
     model = Rifa
     form_class = RifaForm
     template_name = 'rifas/admin/rifa_form.html'
     success_url = reverse_lazy('rifas:admin_rifas_list')
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -773,14 +761,11 @@ class AdminRifaCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return context
 
 @method_decorator(staff_member_required, name='dispatch')
-class AdminRifaUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+class AdminRifaUpdateView(StaffRequiredMixin, UpdateView):
     model = Rifa
     form_class = RifaForm
     template_name = 'rifas/admin/rifa_form.html'
     success_url = reverse_lazy('rifas:admin_rifas_list')
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def form_valid(self, form):
         messages.success(self.request, f'Rifa "{form.instance.nombre}" actualizada exitosamente.')
@@ -791,14 +776,10 @@ class AdminRifaUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         context['titulo'] = f'Editar Rifa: {self.object.nombre}'
         return context
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminRifaDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+class AdminRifaDetailView(StaffRequiredMixin, DetailView):
     model = Rifa
     template_name = 'rifas/admin/rifa_detail.html'
     context_object_name = 'rifa'
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -832,15 +813,11 @@ class AdminRifaDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
 
 # ==================== GESTIÓN DE USUARIOS ====================
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminUsuariosListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+class AdminUsuariosListView(StaffRequiredMixin, ListView):
     model = User
     template_name = 'rifas/admin/usuarios_list.html'
     context_object_name = 'usuarios'
     paginate_by = 20
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def get_queryset(self):
         queryset = User.objects.all().order_by('-date_joined')
@@ -873,8 +850,7 @@ class AdminUsuariosListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         context['usuarios_activos'] = User.objects.filter(is_active=True).count()
         return context
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminUsuarioCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+class AdminUsuarioCreateView(StaffRequiredMixin, CreateView):
     model = User
     form_class = UsuarioCreateForm
     template_name = 'rifas/admin/usuario_form.html'
@@ -892,15 +868,11 @@ class AdminUsuarioCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView
         context['titulo'] = 'Crear Nuevo Usuario'
         return context
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminUsuarioUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+class AdminUsuarioUpdateView(StaffRequiredMixin, UpdateView):
     model = User
     form_class = UsuarioEditForm
     template_name = 'rifas/admin/usuario_form.html'
     success_url = reverse_lazy('rifas:admin_usuarios_list')
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def form_valid(self, form):
         messages.success(self.request, f'Usuario "{form.instance.username}" actualizado exitosamente.')
@@ -911,12 +883,8 @@ class AdminUsuarioUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView
         context['titulo'] = f'Editar Usuario: {self.object.username}'
         return context
 
-@method_decorator(staff_member_required, name='dispatch')
-class AdminUsuarioPasswordView(LoginRequiredMixin, UserPassesTestMixin, View):
+class AdminUsuarioPasswordView(StaffRequiredMixin, View):
     template_name = 'rifas/admin/usuario_password.html'
-    
-    def test_func(self):
-        return self.request.user.is_staff
     
     def get(self, request, pk):
         usuario = get_object_or_404(User, pk=pk)
@@ -979,3 +947,24 @@ def toggle_usuario_staff(request, pk):
     messages.success(request, f'Usuario "{usuario.username}" {estado} exitosamente.')
     
     return redirect('rifas:admin_usuarios_list')
+
+# Vista protegida para servir archivos de storage
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def protected_media(request, path):
+    """
+    Vista protegida para servir archivos de storage.
+    Solo usuarios staff pueden acceder a los archivos.
+    """
+    file_path = os.path.join(settings.MEDIA_ROOT, path)
+    
+    # Verificar que el archivo existe y está dentro de MEDIA_ROOT
+    if not os.path.exists(file_path) or not file_path.startswith(settings.MEDIA_ROOT):
+        raise Http404("Archivo no encontrado")
+    
+    # Verificar que es un archivo (no un directorio)
+    if not os.path.isfile(file_path):
+        raise Http404("No es un archivo válido")
+    
+    # Servir el archivo
+    return FileResponse(open(file_path, 'rb'), content_type='application/octet-stream')

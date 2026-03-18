@@ -60,4 +60,27 @@ urlpatterns = [
 
     # URLs de allauth deshabilitadas - solo se usa el admin de Django para login
     # path('usuario/', include('allauth.urls')),
-]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+# Modificado: 2026-03-17 23:30:00 - Proteger archivos de storage en producción
+# Solo servir archivos de media en desarrollo (DEBUG=True)
+# En producción, usar la vista protegida o servir con Nginx/Apache
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # En producción, usar vista protegida para archivos de storage
+    from eventos.views import protected_media
+    urlpatterns += [
+        path('storage/<path:path>', protected_media, name='protected_media'),
+    ]
+
+# Solo servir archivos de media en desarrollo (DEBUG=True)
+# En producción, usar la vista protegida o servir con Nginx/Apache
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # En producción, usar vista protegida para archivos de storage
+    from eventos.views import protected_media
+    urlpatterns += [
+        path('storage/<path:path>', protected_media, name='protected_media'),
+    ]
