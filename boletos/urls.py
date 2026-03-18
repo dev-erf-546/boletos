@@ -1,12 +1,57 @@
-# Modificado: 2026-03-17 22:10:50 - Eliminada URL /usuario/login/ de allauth, solo se usa /admin/login/
+# Modificado: 2026-03-17 22:10:50 - Vista personalizada de login para admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from django.shortcuts import redirect, render
+from django.contrib.auth.forms import AuthenticationForm
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_protect
+from django.http import HttpResponse
 
-# Configurar el template personalizado para el login del admin
-admin.site.login_template = 'admin/login.html'
+@never_cache
+@csrf_protect
+def custom_admin_login(request):
+    """
+    Vista personalizada de login que usa nuestro template personalizado.
+    """
+    # Si ya está autenticado y es staff, redirigir
+    if request.user.is_authenticated and request.user.is_staff:
+        next_url = request.GET.get('next', '/admin-panel/')
+        return redirect(next_url)
+    
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            from django.contrib.auth import login
+            user = form.get_user()
+            # Verificar que sea staff
+            if not user.is_staff:
+                form.add_error(None, 'Solo los administradores pueden acceder.')
+            else:
+                login(request, user)
+                next_url = request.POST.get('next', '/admin-panel/')
+                return redirect(next_url)
+    else:
+        form = AuthenticationForm(request)
+    
+    # Renderizar el template directamente con HttpResponse para asegurar que se cargue
+    from django.template.loader import get_template
+    from django.template import Context
+    
+    template = get_template('admin/login.html')
+    context = {
+        'form': form,
+        'next': request.GET.get('next', '/admin-panel/'),
+        'site_header': admin.site.site_header,
+        'site_title': admin.site.site_title,
+    }
+    html = template.render(context, request)
+    return HttpResponse(html)
+
+# Configurar el AdminSite para usar nuestra vista personalizada
+admin.site.login = custom_admin_login
 
 urlpatterns = [
     path('', include('eventos.urls', namespace='rifas')),
