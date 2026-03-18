@@ -195,12 +195,12 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'  # 'mandatory' o 'optional'
 ACCOUNT_LOGOUT_ON_GET = True  # Cierra sesión con solo visitar /accounts/logout/
 
 # Modificado: 2026-03-17 22:10:50 - Configuración de redirect al admin-panel después del login
-# URLs de redirección (el adaptador personalizado tiene prioridad)
-LOGIN_REDIRECT_URL = 'rifas:admin_dashboard'  # URL por defecto (el adaptador puede sobrescribir esto)
-LOGOUT_REDIRECT_URL = 'rifas:listado_rifas'  # URL a redirigir después del logout
+# URLs de redirección - Solo se usa el admin de Django, no allauth
+LOGIN_REDIRECT_URL = '/admin-panel/'  # Redirigir al panel admin después del login
+LOGOUT_REDIRECT_URL = '/'  # Redirigir al inicio después del logout
 
-# Adaptador personalizado para redirección
-ACCOUNT_ADAPTER = 'eventos.adapters.CustomAccountAdapter'
+# Adaptador personalizado de allauth deshabilitado (ya no se usa allauth)
+# ACCOUNT_ADAPTER = 'eventos.adapters.CustomAccountAdapter'
 
 # Configuración de seguridad para producción
 if not DEBUG:

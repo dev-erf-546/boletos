@@ -11,21 +11,13 @@
         <i class="bi bi-person-circle"></i> {{ user.username }}
     </a>
     <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="{% url 'account_email' %}">Cambiar Email</a></li>
-        <li><a class="dropdown-item" href="{% url 'account_change_password' %}">Cambiar Contraseña</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{% url 'account_logout' %}">Cerrar sesión</a></li>
+        <li><a class="dropdown-item" href="/admin/logout/?next=/">Cerrar sesión</a></li>
     </ul>
 </li>
 {% else %}
 <li class="nav-item">
-    <a class="nav-link" href="{% url 'account_login' %}">
-        <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
-    </a>
-</li>
-<li class="nav-item">
-    <a class="nav-link" href="{% url 'account_signup' %}">
-        <i class="bi bi-person-plus"></i> Registrarse
+    <a class="nav-link" href="/admin/login/?next=/admin-panel/" title="Acceso solo para administradores">
+        <i class="bi bi-shield-lock"></i> Admin Login
     </a>
 </li>
 {% endif %}

@@ -60,14 +60,14 @@
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
                         {% endif %}
-                        <li><a class="dropdown-item" href="{% url 'account_logout' %}">
+                        <li><a class="dropdown-item" href="/admin/logout/?next=/">
                             <i class="bi bi-box-arrow-right"></i> Cerrar sesión
                         </a></li>
                     </ul>
                 </li>
                 {% else %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'account_login' %}" title="Acceso solo para administradores">
+                    <a class="nav-link" href="/admin/login/?next=/admin-panel/" title="Acceso solo para administradores">
                         <i class="bi bi-shield-lock"></i> Admin Login
                     </a>
                 </li>
