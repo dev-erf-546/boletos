@@ -84,27 +84,27 @@
         left: 100%;
     }
     
-    .ticket.available {
+    .ticket.disponible {
         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         color: white;
         border-color: #1e7e34;
     }
     
-    .ticket.available:hover,
-    .ticket.available:active {
+    .ticket.disponible:hover,
+    .ticket.disponible:active {
         transform: scale(1.05);
         box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
     }
     
     /* Mejor feedback táctil en móviles */
     @media (hover: none) and (pointer: coarse) {
-        .ticket.available:active {
+        .ticket.disponible:active {
             transform: scale(0.95);
             opacity: 0.8;
         }
     }
     
-    .ticket.sold {
+    .ticket.vendido {
         background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
         color: white;
         border-color: #bd2130;
@@ -113,10 +113,20 @@
         text-decoration: line-through;
     }
     
-    .ticket.reserved {
+    .ticket.reservado {
         background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
         color: #212529;
         border-color: #e0a800;
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    
+    .ticket.validacion {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+        border-color: #117a8b;
+        opacity: 0.7;
+        cursor: not-allowed;
     }
     
     .ticket.selected {
