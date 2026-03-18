@@ -1,0 +1,129 @@
+{# Modificado: 2026-03-17 22:10:50 - Template personalizado para login del admin de Django #}
+{% extends "rifas/base.html" %}
+{% load i18n static %}
+
+{% block title %}Iniciar Sesión - Administrador{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-login-container {
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+    .admin-login-card {
+        max-width: 450px;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-login-container">
+    <div class="admin-login-card">
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-primary text-white text-center py-4">
+                <h2 class="mb-0">
+                    <i class="bi bi-shield-lock"></i> Acceso de Administrador
+                </h2>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Acceso exclusivo para administradores.</strong> Solo personal autorizado puede iniciar sesión.
+                </div>
+                
+                {% if form.errors and not form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Por favor, corrige los errores a continuación.
+                    </div>
+                {% endif %}
+                
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <form method="post" action="{% url 'admin:login' %}">
+                    {% csrf_token %}
+                    
+                    {% if next %}
+                        <input type="hidden" name="next" value="{{ next }}" />
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label">
+                            <i class="bi bi-person"></i> Usuario
+                        </label>
+                        <input type="text" 
+                               name="username" 
+                               class="form-control form-control-lg {% if form.username.errors %}is-invalid{% endif %}" 
+                               id="id_username" 
+                               required 
+                               autofocus
+                               placeholder="Ingresa tu usuario">
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.username.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">
+                            <i class="bi bi-lock"></i> Contraseña
+                        </label>
+                        <input type="password" 
+                               name="password" 
+                               class="form-control form-control-lg {% if form.password.errors %}is-invalid{% endif %}" 
+                               id="id_password" 
+                               required
+                               placeholder="Ingresa tu contraseña">
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.password.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" 
+                               name="remember" 
+                               class="form-check-input" 
+                               id="id_remember">
+                        <label class="form-check-label" for="id_remember">
+                            Recordarme en este dispositivo
+                        </label>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-lg w-100 mb-3" type="submit">
+                        <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
+                    </button>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <p class="text-muted small mb-2">
+                        <i class="bi bi-shield-check"></i> 
+                        Serás redirigido al panel de administración después del login.
+                    </p>
+                    <hr class="my-3">
+                    <a href="{% url 'rifas:listado_rifas' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> Volver al inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
