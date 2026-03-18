@@ -1,3 +1,4 @@
+/* Modificado: 2026-03-17 23:20:00 - Archivo JS theme del admin de Django descargado desde el repositorio oficial */
 'use strict';
 {
     function setTheme(mode) {
