@@ -36,9 +36,9 @@ def custom_admin_login(request):
     else:
         form = AuthenticationForm(request)
     
-    # Renderizar el template directamente con HttpResponse para asegurar que se cargue
+    # Renderizar el template con RequestContext para que el CSRF token funcione
     from django.template.loader import get_template
-    from django.template import Context
+    from django.template import RequestContext
     
     template = get_template('admin/login.html')
     context = {
@@ -47,6 +47,7 @@ def custom_admin_login(request):
         'site_header': admin.site.site_header,
         'site_title': admin.site.site_title,
     }
+    # Usar RequestContext para que el CSRF token se genere correctamente
     html = template.render(context, request)
     return HttpResponse(html)
 

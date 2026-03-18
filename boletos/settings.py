@@ -150,9 +150,15 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = '/home/webapps/rifa/static' 
+# Modificado: 2026-03-17 22:10:50 - Agregar carpeta static del proyecto a STATICFILES_DIRS
 # Solo agregar static_extra si el directorio existe
 static_extra_dir = os.path.join(BASE_DIR, 'static_extra')
-STATICFILES_DIRS = [static_extra_dir] if os.path.exists(static_extra_dir) else []
+static_dirs = [static_extra_dir] if os.path.exists(static_extra_dir) else []
+# Agregar la carpeta static del proyecto si existe
+static_project_dir = os.path.join(BASE_DIR, 'static')
+if os.path.exists(static_project_dir):
+    static_dirs.append(static_project_dir)
+STATICFILES_DIRS = static_dirs
 MEDIA_URL = '/storage/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'storage')
 
