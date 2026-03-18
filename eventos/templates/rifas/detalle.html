@@ -588,9 +588,6 @@
                 <h4 class="mb-0"><strong>Total:</strong> $<span id="totalToPay" class="text-success">0.00</span></h4>
             </div>
             <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                <a href="{% url 'rifas:seleccion_numero' rifa.id %}" class="btn btn-primary btn-lg" id="buyBtn" style="display: none;">
-                    <i class="bi bi-cart-plus"></i> Proceder a Comprar
-                </a>
                 <a href="https://wa.me/529933933115?text=" class="btn btn-success btn-lg" id="whatsappBtn" style="display: none;" target="_blank">
                     <i class="bi bi-whatsapp"></i> Contactar por WhatsApp
                 </a>
@@ -608,8 +605,26 @@
 // Configuración
 const apiDataElement = document.getElementById('api-data');
 const apiEndpoint = apiDataElement ? apiDataElement.dataset.apiUrl : '';
-const whatsappNumber = "529933933115";
 const ticketsPerPage = 200; // Boletos por página para mejor rendimiento
+
+// Obtener número de WhatsApp según rango de boletos
+function getWhatsappNumberForTicket(numeroBoleto) {
+    if (numeroBoleto >= 1 && numeroBoleto <= 250) {
+        return "529933933115"; // Vendedor 1
+    } else if (numeroBoleto >= 251 && numeroBoleto <= 500) {
+        return "529931832904"; // Vendedor 2
+    } else if (numeroBoleto >= 501 && numeroBoleto <= 750) {
+        return "529931778227"; // Vendedor 3
+    } else if (numeroBoleto >= 751 && numeroBoleto <= 1000) {
+        return "529361104359"; // Vendedor 4
+    } else if (numeroBoleto >= 1001 && numeroBoleto <= 1250) {
+        return "529361010013"; // Vendedor 5
+    } else if (numeroBoleto >= 1251 && numeroBoleto <= 1500) {
+        return "529932794832"; // Vendedor 6
+    }
+    // Número por defecto (por si acaso)
+    return "529933933115";
+}
 
 // Variables globales
 let allTickets = [];
@@ -815,6 +830,9 @@ function updateWhatsAppButton() {
     }
     
     const numbers = selectedTickets.map(t => t.numero).join(', ');
+    // Usar el número de WhatsApp según el boleto con número más bajo seleccionado
+    const minTicketNumber = Math.min(...selectedTickets.map(t => t.numero));
+    const whatsappNumber = getWhatsappNumberForTicket(minTicketNumber);
     const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
     const total = selectedTickets.length * ticketPrice;
     const message = `Hola, estoy interesado en comprar los siguientes boletos de la rifa "{{ rifa.nombre }}":\n\nNúmeros: ${numbers}\n\nTotal: $${total.toFixed(2)}\n\n¿Están disponibles?`;
