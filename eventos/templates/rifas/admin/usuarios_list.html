@@ -3,7 +3,7 @@
 {% block title %}Gestionar Usuarios{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="admin-header">
     <h1><i class="bi bi-people"></i> Gestionar Usuarios</h1>
     <a href="{% url 'rifas:admin_usuario_create' %}" class="btn btn-primary">
         <i class="bi bi-person-plus"></i> Nuevo Usuario
@@ -12,27 +12,27 @@
 
 <!-- Estadísticas -->
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-4">
         <div class="card">
-            <div class="card-body text-center">
-                <h3 class="text-primary">{{ total_usuarios }}</h3>
-                <p class="text-muted mb-0">Total Usuarios</p>
+            <div class="card-body text-center p-2 p-md-3">
+                <h3 class="text-primary mb-0">{{ total_usuarios }}</h3>
+                <small class="text-muted">Total</small>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-4">
         <div class="card">
-            <div class="card-body text-center">
-                <h3 class="text-success">{{ usuarios_staff }}</h3>
-                <p class="text-muted mb-0">Administradores</p>
+            <div class="card-body text-center p-2 p-md-3">
+                <h3 class="text-success mb-0">{{ usuarios_staff }}</h3>
+                <small class="text-muted">Admins</small>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-4">
         <div class="card">
-            <div class="card-body text-center">
-                <h3 class="text-info">{{ usuarios_activos }}</h3>
-                <p class="text-muted mb-0">Usuarios Activos</p>
+            <div class="card-body text-center p-2 p-md-3">
+                <h3 class="text-info mb-0">{{ usuarios_activos }}</h3>
+                <small class="text-muted">Activos</small>
             </div>
         </div>
     </div>
@@ -41,27 +41,27 @@
 <!-- Filtros y Búsqueda -->
 <div class="card mb-4">
     <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-4">
+        <form method="get" class="row g-2">
+            <div class="col-12 col-md-4">
                 <input type="text" name="search" class="form-control" 
-                       placeholder="Buscar por nombre, email o usuario..." 
+                       placeholder="Buscar nombre, email o usuario..." 
                        value="{{ request.GET.search }}">
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-2">
                 <select name="is_staff" class="form-select">
-                    <option value="">Todos</option>
-                    <option value="true" {% if request.GET.is_staff == 'true' %}selected{% endif %}>Solo Admin</option>
-                    <option value="false" {% if request.GET.is_staff == 'false' %}selected{% endif %}>Solo Usuarios</option>
+                    <option value="">Rol</option>
+                    <option value="true" {% if request.GET.is_staff == 'true' %}selected{% endif %}>Admin</option>
+                    <option value="false" {% if request.GET.is_staff == 'false' %}selected{% endif %}>Usuario</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-2">
                 <select name="is_active" class="form-select">
-                    <option value="">Todos</option>
-                    <option value="true" {% if request.GET.is_active == 'true' %}selected{% endif %}>Solo Activos</option>
-                    <option value="false" {% if request.GET.is_active == 'false' %}selected{% endif %}>Solo Inactivos</option>
+                    <option value="">Estado</option>
+                    <option value="true" {% if request.GET.is_active == 'true' %}selected{% endif %}>Activos</option>
+                    <option value="false" {% if request.GET.is_active == 'false' %}selected{% endif %}>Inactivos</option>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-12 col-md-4">
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-search"></i> Buscar
                 </button>
@@ -79,10 +79,10 @@
                     <thead>
                         <tr>
                             <th>Usuario</th>
-                            <th>Nombre Completo</th>
-                            <th>Email</th>
-                            <th>Fecha Registro</th>
-                            <th>Último Acceso</th>
+                            <th class="d-none d-md-table-cell">Nombre</th>
+                            <th class="d-none d-lg-table-cell">Email</th>
+                            <th class="d-none d-xl-table-cell">Registro</th>
+                            <th class="d-none d-xl-table-cell">Último Acceso</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -95,11 +95,14 @@
                                 {% if usuario.is_staff %}
                                     <span class="badge bg-success">Admin</span>
                                 {% endif %}
+                                <div class="d-md-none">
+                                    <small class="text-muted">{{ usuario.get_full_name|default:"" }}</small>
+                                </div>
                             </td>
-                            <td>{{ usuario.get_full_name|default:"-" }}</td>
-                            <td>{{ usuario.email|default:"-" }}</td>
-                            <td>{{ usuario.date_joined|date:"d/m/Y" }}</td>
-                            <td>{{ usuario.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
+                            <td class="d-none d-md-table-cell">{{ usuario.get_full_name|default:"-" }}</td>
+                            <td class="d-none d-lg-table-cell">{{ usuario.email|default:"-" }}</td>
+                            <td class="d-none d-xl-table-cell">{{ usuario.date_joined|date:"d/m/Y" }}</td>
+                            <td class="d-none d-xl-table-cell">{{ usuario.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
                             <td>
                                 {% if usuario.is_active %}
                                     <span class="badge bg-success">Activo</span>

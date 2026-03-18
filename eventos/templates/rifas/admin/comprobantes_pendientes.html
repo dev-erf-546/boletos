@@ -1,109 +1,80 @@
-{% extends 'rifas/base.html' %}
-
-{% block content %}
-
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Boletos Vendidos y Comprobantes Pendientes</h1><br/><br/>
-    <a href="{% url 'rifas:descargar_qrs' %}" class="btn btn-success">
-        <i class="bi bi-download"></i> Descargar QR Aprobados (ZIP)
-    </a>
-</div>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Boleto</th>
-            <th>Rifa</th>
-            <th>Participante</th>
-            <th>Teléfono</th>
-            <th>Estado</th>
-            <th>Fecha</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for comp in comprobantes %}
-        <tr>
-            <td>#{{ comp.boleto.numero }}</td>
-            <td>{{ comp.boleto.rifa.nombre|truncatechars:20 }}</td>
-            <td>{{ comp.boleto.participante.nombre_completo }}</td>
-            <td>{{ comp.boleto.participante.telefono }}</td>
-            <td>
-                <span class="badge {% if comp.estado == 'A' %}bg-success{% elif comp.estado == 'R' %}bg-danger{% else %}bg-warning{% endif %}">
-                    {{ comp.get_estado_display }}
-                </span>
-            </td>
-            <td>{{ comp.fecha_subida|date:"d/m/Y H:i" }}</td>
-            <td>
-                {% if comp.estado == 'P' %}
-                
-                <a href="{% url 'rifas:validar_comprobante' comp.id %}" class="btn btn-sm btn-info">
-                    Validar
-                </a>
-                {% else %}
-                    <p>VALIDADO</p>
-                {% endif %}
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="7">No hay registros</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endblock %}
-{% comment %} {% extends 'rifas/base.html' %}
+{% extends 'rifas/admin/base_admin.html' %}
 
 {% block title %}Comprobantes Pendientes{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Comprobantes Pendientes</h1>
-    <span class="badge bg-primary rounded-pill">{{ comprobantes.count }} pendientes</span>
+<div class="admin-header">
+    <h1><i class="bi bi-receipt"></i> Comprobantes</h1>
+    <a href="{% url 'rifas:descargar_qrs' %}" class="btn btn-success">
+        <i class="bi bi-download"></i> Descargar QRs (ZIP)
+    </a>
 </div>
 
-{% if comprobantes %}
-<div class="table-responsive">
-    <table class="table table-hover">
-        <thead class="table-light">
-            <tr>
-                <th>Boleto</th>
-                <th>Participante</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for comprobante in comprobantes %}
-            <tr>
-                <td>
-                    <strong>#{{ comprobante.boleto.numero }}</strong><br>
-                    <small>{{ comprobante.boleto.rifa.nombre }}</small>
-                </td>
-                <td>
-                    {{ comprobante.boleto.participante.nombre_completo }}<br>
-                    <small>{{ comprobante.boleto.participante.telefono }}</small>
-                </td>
-                <td>
-                    {{ comprobante.fecha_subida|date:"d/m/Y H:i" }}<br>
-                    <small class="text-muted">{{ comprobante.fecha_subida|timesince }}</small>
-                </td>
-                <td>{% if comprobante.boleto.estado=='R' %}
-                    <a href="{% url 'rifas:validar_comprobante' comprobante.id %}" 
-                       class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-eye"></i> Revisar
-                    </a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Boletos Vendidos y Comprobantes</h5>
+        <span class="badge bg-light text-dark">{{ comprobantes|length }} registro(s)</span>
+    </div>
+    <div class="card-body p-0">
+        {% if comprobantes %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Boleto</th>
+                        <th class="d-none d-md-table-cell">Rifa</th>
+                        <th>Participante</th>
+                        <th class="d-none d-sm-table-cell">Teléfono</th>
+                        <th>Estado</th>
+                        <th class="d-none d-lg-table-cell">Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in comprobantes %}
+                    <tr>
+                        <td>
+                            <strong>#{{ comp.boleto.numero }}</strong>
+                            <div class="d-md-none">
+                                <small class="text-muted">{{ comp.boleto.rifa.nombre|truncatechars:15 }}</small>
+                            </div>
+                        </td>
+                        <td class="d-none d-md-table-cell">{{ comp.boleto.rifa.nombre|truncatechars:20 }}</td>
+                        <td>
+                            {{ comp.boleto.participante.nombre_completo }}
+                            <div class="d-sm-none">
+                                <small class="text-muted">{{ comp.boleto.participante.telefono }}</small>
+                            </div>
+                        </td>
+                        <td class="d-none d-sm-table-cell">{{ comp.boleto.participante.telefono }}</td>
+                        <td>
+                            <span class="badge {% if comp.estado == 'A' %}bg-success{% elif comp.estado == 'R' %}bg-danger{% else %}bg-warning{% endif %}">
+                                {{ comp.get_estado_display }}
+                            </span>
+                        </td>
+                        <td class="d-none d-lg-table-cell">
+                            <small>{{ comp.fecha_subida|date:"d/m/Y H:i" }}</small>
+                        </td>
+                        <td>
+                            {% if comp.estado == 'P' %}
+                            <a href="{% url 'rifas:validar_comprobante' comp.id %}" class="btn btn-sm btn-info">
+                                <i class="bi bi-check-circle"></i><span class="d-none d-md-inline"> Validar</span>
+                            </a>
+                            {% else %}
+                            <span class="badge bg-secondary">Validado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-check-circle" style="font-size: 3rem; color: #28a745;"></i>
+            <p class="text-muted mt-3 mb-0">No hay comprobantes pendientes de revisión</p>
+        </div>
+        {% endif %}
+    </div>
 </div>
-{% else %}
-<div class="alert alert-success">
-    <h4 class="alert-heading">¡Todo al día!</h4>
-    <p>No hay comprobantes pendientes de revisión.</p>
-</div>
-{% endif %}
-{% endblock %} {% endcomment %}
+{% endblock %}

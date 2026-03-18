@@ -3,22 +3,22 @@
 {% block title %}{{ rifa.nombre }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="admin-header">
     <h1><i class="bi bi-ticket-perforated"></i> {{ rifa.nombre }}</h1>
     <div class="btn-group">
         <a href="{% url 'rifas:admin_rifa_edit' rifa.pk %}" class="btn btn-primary">
-            <i class="bi bi-pencil"></i> Editar
+            <i class="bi bi-pencil"></i><span class="d-none d-sm-inline"> Editar</span>
         </a>
         <a href="{% url 'rifas:admin_gestion_boletos' rifa.pk %}" class="btn btn-success">
-            <i class="bi bi-list-check"></i> Gestionar Boletos
+            <i class="bi bi-list-check"></i><span class="d-none d-sm-inline"> Gestionar Boletos</span>
         </a>
     </div>
 </div>
 
 <div class="row">
     <!-- Información Principal -->
-    <div class="col-md-8">
-        <div class="card mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">Información de la Rifa</h5>
             </div>
@@ -30,9 +30,10 @@
                 </div>
                 {% endif %}
                 
+                <div class="table-responsive">
                 <table class="table">
                     <tr>
-                        <th width="200">Nombre:</th>
+                        <th style="min-width: 150px;">Nombre:</th>
                         <td>{{ rifa.nombre }}</td>
                     </tr>
                     <tr>
@@ -74,12 +75,13 @@
                     </tr>
                     {% endif %}
                 </table>
+                </div>
             </div>
         </div>
     </div>
     
     <!-- Estadísticas -->
-    <div class="col-md-4">
+    <div class="col-lg-4">
         <div class="card mb-4">
             <div class="card-header bg-success text-white">
                 <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Estadísticas</h5>

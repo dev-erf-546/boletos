@@ -1,20 +1,23 @@
-{% extends 'rifas/base.html' %}
+{% extends 'rifas/admin/base_admin.html' %}
 
 {% block title %}Validar Comprobante - Boleto #{{ comprobante.boleto.numero }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col">
-        <h1>Validar Comprobante</h1>
-        <p class="lead">Boleto #{{ comprobante.boleto.numero }} - {{ comprobante.boleto.rifa.nombre }}</p>
+<div class="admin-header">
+    <div>
+        <h1><i class="bi bi-clipboard-check"></i> Validar Comprobante</h1>
+        <p class="text-muted mb-0">Boleto #{{ comprobante.boleto.numero }} - {{ comprobante.boleto.rifa.nombre }}</p>
     </div>
+    <a href="{% url 'rifas:comprobantes_pendientes' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
 </div>
 
 <div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h3 class="mb-0">Información del participante</h3>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-person"></i> Participante</h5>
             </div>
             <div class="card-body">
                 <ul class="list-group list-group-flush">
@@ -28,119 +31,91 @@
                         <strong>Email:</strong> {{ comprobante.boleto.participante.email|default:"No especificado" }}
                     </li>
                     <li class="list-group-item">
-                        <strong>Método de contacto:</strong> {{ comprobante.boleto.participante.get_metodo_contacto_display }}
+                        <strong>Contacto:</strong> {{ comprobante.boleto.participante.get_metodo_contacto_display }}
                     </li>
                 </ul>
             </div>
         </div>
     </div>
-    <div class="col-md-6 mb-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h3 class="mb-0">Comprobante de pago</h3>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-image"></i> Comprobante de Pago</h5>
             </div>
             <div class="card-body text-center">
                 <img src="{{ comprobante.imagen.url }}" class="img-fluid rounded border" 
-                     alt="Comprobante de pago" style="max-height: 400px;">
-                <p class="mt-2 text-muted">
-                    Subido el {{ comprobante.fecha_subida|date:"d/m/Y H:i" }}
+                     alt="Comprobante de pago" style="max-height: 400px; cursor: zoom-in;"
+                     onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '400px' : 'none'">
+                <p class="mt-2 text-muted mb-0">
+                    <small>Subido el {{ comprobante.fecha_subida|date:"d/m/Y H:i" }}</small>
                 </p>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h3 class="mb-0">Validación</h3>
-            </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Estado</label>
-                        <div class="d-flex gap-3">
-                            
-                            {% for choice in form.estado %}
-                            <div class="form-check">
-                                {{ choice.tag }}
-                                <label class="form-check-label" for="{{ choice.id_for_label }}">
-                                    {{ choice.choice_label }}
-                                </label>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3" id="motivo-rechazo-container" style="display: none;">
-                        <label for="{{ form.motivo_rechazo.id_for_label }}" class="form-label">
-                            Motivo de rechazo
+<div class="card shadow-sm">
+    <div class="card-header bg-warning">
+        <h5 class="mb-0"><i class="bi bi-check2-square"></i> Validación</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold">Estado</label>
+                <div class="d-flex flex-wrap gap-3">
+                    {% for choice in form.estado %}
+                    <div class="form-check">
+                        {{ choice.tag }}
+                        <label class="form-check-label" for="{{ choice.id_for_label }}">
+                            {{ choice.choice_label }}
                         </label>
-                        {{ form.motivo_rechazo }}
-                        <div class="form-text">
-                            Este mensaje se enviará al participante
-                        </div>
                     </div>
-                    
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'rifas:comprobantes_pendientes' %}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Volver
-                        </a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle"></i> Guardar
-                        </button>
-                    </div>
-                </form>
+                    {% endfor %}
+                </div>
             </div>
-        </div>
+            
+            <div class="mb-3" id="motivo-rechazo-container" style="display: none;">
+                <label for="{{ form.motivo_rechazo.id_for_label }}" class="form-label fw-bold">
+                    Motivo de rechazo
+                </label>
+                {{ form.motivo_rechazo }}
+                <div class="form-text">
+                    Este mensaje se enviará al participante
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{% url 'rifas:comprobantes_pendientes' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle"></i> Guardar
+                </button>
+            </div>
+        </form>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        try {
-            // Selecciona los radios de estado - verifica el name real inspeccionando el HTML generado
-            const estadoRadios = document.querySelectorAll('input[name="estado"]');
-            const motivoContainer = document.getElementById('motivo-rechazo-container');
-            
-            if (!estadoRadios.length) {
-                console.warn('No se encontraron radios de estado');
-                return;
-            }
-            
-            if (!motivoContainer) {
-                console.warn('No se encontró el contenedor de motivo de rechazo');
-                return;
-            }
-            
-            function toggleMotivoRechazo() {
-                const radioSeleccionado = Array.from(estadoRadios).find(r => r.checked);
-                if (!radioSeleccionado) return;
-                
-                motivoContainer.style.display = radioSeleccionado.value === 'R' ? 'block' : 'none';
-                
-                // Si necesitas hacer el campo requerido cuando es visible
-                const motivoInput = motivoContainer.querySelector('textarea, input');
-                if (motivoInput) {
-                    motivoInput.required = radioSeleccionado.value === 'R';
-                }
-            }
-            
-            estadoRadios.forEach(radio => {
-                radio.addEventListener('change', toggleMotivoRechazo);
-            });
-            
-            // Inicializar estado
-            toggleMotivoRechazo();
-            
-        } catch (error) {
-            console.error('Error en el script de validación:', error);
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    var estadoRadios = document.querySelectorAll('input[name="estado"]');
+    var motivoContainer = document.getElementById('motivo-rechazo-container');
+    if (!estadoRadios.length || !motivoContainer) return;
+
+    function toggleMotivoRechazo() {
+        var sel = Array.from(estadoRadios).find(function(r) { return r.checked; });
+        if (!sel) return;
+        motivoContainer.style.display = sel.value === 'R' ? 'block' : 'none';
+        var input = motivoContainer.querySelector('textarea, input');
+        if (input) input.required = sel.value === 'R';
+    }
+
+    estadoRadios.forEach(function(r) { r.addEventListener('change', toggleMotivoRechazo); });
+    toggleMotivoRechazo();
+});
 </script>
-{% endblock %}
 {% endblock %}
