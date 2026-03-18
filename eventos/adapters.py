@@ -1,3 +1,4 @@
+# Modificado: 2026-03-17 22:10:50 - Configuración de redirect al admin-panel después del login
 from allauth.account.adapter import DefaultAccountAdapter
 from django.urls import reverse
 from django.contrib import messages
@@ -9,12 +10,9 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         Redirige siempre al panel admin después del login.
         Solo administradores pueden iniciar sesión.
         """
-        # Redirigir siempre al panel admin
-        if hasattr(request, 'user') and request.user.is_authenticated:
-            return reverse('rifas:admin_dashboard')
-        
-        # Si por alguna razón no está autenticado, redirigir al listado
-        return reverse('rifas:listado_rifas')
+        # Siempre redirigir al panel admin después del login exitoso
+        # El usuario ya está autenticado cuando se llama este método
+        return reverse('rifas:admin_dashboard')
     
     def is_open_for_signup(self, request):
         """

@@ -663,6 +663,7 @@ def liberar_boleto(request, boleto_id):
 # ==================== PANEL DE ADMINISTRACIÓN ====================
 
 @method_decorator(staff_member_required, name='dispatch')
+# Modificado: 2026-03-17 22:10:50 - Vista del dashboard admin con estadísticas
 class AdminDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = 'rifas/admin/dashboard.html'
     
