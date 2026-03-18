@@ -656,10 +656,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // Event Listeners
 function setupEventListeners() {
     // Búsqueda
-    searchBox.addEventListener('input', (e) => {
-        currentSearch = e.target.value.toLowerCase();
-        filterTickets();
-    });
+    if (searchBox) {
+        searchBox.addEventListener('input', (e) => {
+            currentSearch = e.target.value.toLowerCase();
+            filterTickets();
+        });
+    }
     
     // Filtros de estado
     document.querySelectorAll('input[name="filterStatus"]').forEach(radio => {
@@ -670,20 +672,26 @@ function setupEventListeners() {
     });
     
     // Botón limpiar selección
-    document.getElementById('clearSelectionBtn').addEventListener('click', () => {
-        selectedTickets = [];
-        updateSummary();
-        renderTickets();
-    });
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    if (clearSelectionBtn) {
+        clearSelectionBtn.addEventListener('click', () => {
+            selectedTickets = [];
+            updateSummary();
+            renderTickets();
+        });
+    }
     
     // Botón seleccionar rango
-    document.getElementById('selectRangeBtn').addEventListener('click', () => {
-        const start = prompt('Número inicial:');
-        const end = prompt('Número final:');
-        if (start && end) {
-            selectRange(parseInt(start), parseInt(end));
-        }
-    });
+    const selectRangeBtn = document.getElementById('selectRangeBtn');
+    if (selectRangeBtn) {
+        selectRangeBtn.addEventListener('click', () => {
+            const start = prompt('Número inicial:');
+            const end = prompt('Número final:');
+            if (start && end) {
+                selectRange(parseInt(start), parseInt(end));
+            }
+        });
+    }
 }
 
 // Cargar boletos desde API
@@ -800,33 +808,53 @@ function selectRange(start, end) {
     
     updateSummary();
     renderTickets();
-    document.getElementById('clearSelectionBtn').style.display = 'inline-block';
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    if (clearSelectionBtn) {
+        clearSelectionBtn.style.display = 'inline-block';
+    }
 }
 
 // Actualizar resumen
 function updateSummary() {
-    const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
+    const ticketPriceEl = document.getElementById('ticketPrice');
+    const totalSelectedEl = document.getElementById('totalSelected');
+    const totalToPayEl = document.getElementById('totalToPay');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    
+    // Verificar que los elementos existan antes de acceder a ellos
+    if (!ticketPriceEl || !totalSelectedEl || !totalToPayEl) {
+        console.error('Error: No se encontraron los elementos del resumen');
+        return;
+    }
+    
+    const ticketPrice = parseFloat(ticketPriceEl.textContent);
     const total = selectedTickets.length * ticketPrice;
     
-    document.getElementById('totalSelected').textContent = selectedTickets.length;
-    document.getElementById('totalToPay').textContent = total.toFixed(2);
+    totalSelectedEl.textContent = selectedTickets.length;
+    totalToPayEl.textContent = total.toFixed(2);
     
     if (selectedTickets.length > 0) {
-        summaryPanel.style.display = 'block';
-        document.getElementById('buyBtn').style.display = 'inline-block';
-        document.getElementById('clearSelectionBtn').style.display = 'inline-block';
+        if (summaryPanel) summaryPanel.style.display = 'block';
+        if (clearSelectionBtn) clearSelectionBtn.style.display = 'inline-block';
         updateWhatsAppButton();
     } else {
-        summaryPanel.style.display = 'none';
-        document.getElementById('buyBtn').style.display = 'none';
-        document.getElementById('clearSelectionBtn').style.display = 'none';
+        if (summaryPanel) summaryPanel.style.display = 'none';
+        if (clearSelectionBtn) clearSelectionBtn.style.display = 'none';
     }
 }
 
 // Actualizar botón de WhatsApp
 function updateWhatsAppButton() {
+    const whatsappBtn = document.getElementById('whatsappBtn');
+    const ticketPriceEl = document.getElementById('ticketPrice');
+    
+    if (!whatsappBtn || !ticketPriceEl) {
+        console.error('Error: No se encontraron los elementos del botón de WhatsApp');
+        return;
+    }
+    
     if (selectedTickets.length === 0) {
-        document.getElementById('whatsappBtn').style.display = 'none';
+        whatsappBtn.style.display = 'none';
         return;
     }
     
@@ -834,12 +862,12 @@ function updateWhatsAppButton() {
     // Usar el número de WhatsApp según el boleto con número más bajo seleccionado
     const minTicketNumber = Math.min(...selectedTickets.map(t => t.numero));
     const whatsappNumber = getWhatsappNumberForTicket(minTicketNumber);
-    const ticketPrice = parseFloat(document.getElementById('ticketPrice').textContent);
+    const ticketPrice = parseFloat(ticketPriceEl.textContent);
     const total = selectedTickets.length * ticketPrice;
     const message = `Hola, estoy interesado en comprar los siguientes boletos de la rifa "{{ rifa.nombre }}":\n\nNúmeros: ${numbers}\n\nTotal: $${total.toFixed(2)}\n\n¿Están disponibles?`;
     
-    document.getElementById('whatsappBtn').href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    document.getElementById('whatsappBtn').style.display = 'inline-block';
+    whatsappBtn.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    whatsappBtn.style.display = 'inline-block';
 }
 
 // Actualizar paginación
