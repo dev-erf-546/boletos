@@ -35,19 +35,16 @@
                     <strong>Acceso exclusivo para administradores.</strong> Solo personal autorizado puede iniciar sesión.
                 </div>
                 
-                {% if form.errors and not form.non_field_errors %}
+                {% if form.errors %}
                     <div class="alert alert-danger">
                         <i class="bi bi-exclamation-triangle"></i>
-                        Por favor, corrige los errores a continuación.
-                    </div>
-                {% endif %}
-                
-                {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        {% for error in form.non_field_errors %}
-                            {{ error }}
-                        {% endfor %}
+                        {% if form.non_field_errors %}
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        {% else %}
+                            Por favor, corrige los errores a continuación.
+                        {% endif %}
                     </div>
                 {% endif %}
                 

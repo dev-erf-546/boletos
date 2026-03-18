@@ -5,6 +5,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 
+# Configurar el template personalizado para el login del admin
+admin.site.login_template = 'admin/login.html'
+
 urlpatterns = [
     path('', include('eventos.urls', namespace='rifas')),
     path('admin/', admin.site.urls),
