@@ -18,7 +18,11 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    "boletos.pulsarmex.com",
+    "www.boletos.pulsarmex.com",
+    "pulsarmex.com",
+]
 DEBUG = os.getenv('DEBUG') == 'True'
 #ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 
@@ -216,6 +220,7 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         'https://boletos.pulsarmex.com',
         'https://www.boletos.pulsarmex.com',
+        'https://pulsarmex.com'
     ]
     
     # Cookies de sesión
