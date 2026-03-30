@@ -1,0 +1,162 @@
+{% extends 'rifas/admin/base_admin.html' %}
+
+{% block title %}Mis Ventas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ventas-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .ventas-hero h2 { margin: 0; }
+    .ventas-hero .stat-big {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .rifa-ventas-card {
+        border-left: 4px solid #0d6efd;
+        transition: transform 0.2s;
+    }
+    .rifa-ventas-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .numeros-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .numero-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 45px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+    }
+    .venta-detalle {
+        font-size: 0.85rem;
+    }
+
+    @media (max-width: 480px) {
+        .ventas-hero { padding: 1rem; }
+        .ventas-hero .stat-big { font-size: 2rem; }
+        .ventas-hero h2 { font-size: 1.1rem; }
+        .numero-badge { min-width: 38px; font-size: 0.7rem; padding: 3px 6px; }
+        .numeros-grid { gap: 4px; }
+        .venta-detalle { font-size: 0.78rem; }
+    }
+
+    @media (max-width: 375px) {
+        .ventas-hero .stat-big { font-size: 1.7rem; }
+        .numero-badge { min-width: 34px; font-size: 0.65rem; }
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+        .rifa-ventas-card:hover { transform: none; box-shadow: none; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1><i class="bi bi-graph-up-arrow"></i> Mis Ventas</h1>
+</div>
+
+<!-- Panel resumen -->
+<div class="ventas-hero">
+    <div class="row align-items-center">
+        <div class="col-6 col-md-4 text-center mb-3 mb-md-0">
+            <div class="stat-big">{{ total_vendidos }}</div>
+            <small>Boletos vendidos</small>
+        </div>
+        <div class="col-6 col-md-4 text-center mb-3 mb-md-0">
+            <div class="stat-big">${{ total_ingresos|floatformat:0 }}</div>
+            <small>Total recaudado</small>
+        </div>
+
+        <div class="col-12 col-md-4 text-center">
+            <h2>{{ user.get_full_name|default:user.first_name }}</h2>
+            <small><i class="bi bi-person-badge"></i> Vendedor</small>
+        </div>
+    </div>
+</div>
+
+{% if ventas_por_rifa %}
+<!-- Ventas por Rifa -->
+{% for nombre_rifa, data in ventas_por_rifa.items %}
+<div class="card rifa-ventas-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0">
+            <i class="bi bi-ticket-perforated"></i> {{ nombre_rifa }}
+        </h5>
+        <div class="d-flex gap-2 flex-wrap">
+            <span class="badge bg-success">{{ data.count }} boleto{{ data.count|pluralize:"s" }}</span>
+            <span class="badge bg-primary">${{ data.total|floatformat:0 }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-2 venta-detalle">
+            <strong>Precio unitario:</strong> ${{ data.rifa.precio_boleto|floatformat:2 }}
+            &nbsp;|&nbsp;
+            <strong>Subtotal:</strong> ${{ data.total|floatformat:2 }}
+        </p>
+
+        <h6 class="mb-2"><i class="bi bi-hash"></i> Números vendidos</h6>
+        <div class="numeros-grid mb-3">
+            {% for boleto in data.boletos %}
+            <span class="numero-badge">{{ boleto.numero }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 venta-detalle">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Participante</th>
+                        <th class="d-none d-sm-table-cell">Teléfono</th>
+                        <th class="d-none d-md-table-cell">Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for boleto in data.boletos %}
+                    <tr>
+                        <td><strong>{{ boleto.numero }}</strong></td>
+                        <td>
+                            {{ boleto.participante.nombre_completo|default:"-" }}
+                            <div class="d-sm-none">
+                                <small class="text-muted">{{ boleto.participante.telefono|default:"" }}</small>
+                            </div>
+                        </td>
+                        <td class="d-none d-sm-table-cell">{{ boleto.participante.telefono|default:"-" }}</td>
+                        <td class="d-none d-md-table-cell">
+                            <small>{{ boleto.fecha_venta|date:"d/m/Y H:i"|default:"-" }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+        <p class="text-muted mt-3 mb-0">Aún no tienes boletos vendidos.</p>
+        <p class="text-muted">Cuando asignes o apruebes boletos aparecerán aquí.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

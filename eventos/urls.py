@@ -20,6 +20,7 @@ urlpatterns = [
     
     # Admin - Panel Principal
     path('admin-panel/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
+    path('admin-panel/mis-ventas/', views.AdminMisVentasView.as_view(), name='admin_mis_ventas'),
     path('admin-panel/rifas/', views.AdminRifasListView.as_view(), name='admin_rifas_list'),
     path('admin-panel/rifas/nueva/', views.AdminRifaCreateView.as_view(), name='admin_rifa_create'),
     path('admin-panel/rifas/<int:pk>/', views.AdminRifaDetailView.as_view(), name='admin_rifa_detail'),

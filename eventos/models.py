@@ -54,6 +54,7 @@ class Boleto(models.Model):
     fecha_reserva = models.DateTimeField(null=True, blank=True)
     fecha_venta = models.DateTimeField(null=True, blank=True)
     participante = models.ForeignKey('Participante', on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos')
+    vendido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos_vendidos')
     
     class Meta:
         unique_together = ('rifa', 'numero')

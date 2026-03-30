@@ -273,6 +273,10 @@
                href="#">
                 <i class="bi bi-list-check"></i> Gestión de Boletos
             </a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'admin_mis_ventas' %}active{% endif %}" 
+               href="{% url 'rifas:admin_mis_ventas' %}">
+                <i class="bi bi-graph-up-arrow"></i> Mis Ventas
+            </a>
             <hr class="text-white-50">
             <a class="nav-link" href="{% url 'rifas:listado_rifas' %}">
                 <i class="bi bi-house-door"></i> Ver Sitio Web

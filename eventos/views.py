@@ -287,6 +287,7 @@ class ValidarComprobanteView(StaffRequiredMixin, UpdateView):
         
         if form.instance.estado == 'A':
             boleto.estado = 'V'
+            boleto.vendido_por = self.request.user
 
             if not boleto.participante:
                 boleto.participante = form.instance.participante
@@ -555,6 +556,7 @@ class AdminAsignarBoletoView(StaffRequiredMixin, View):
             boleto.participante = participante
             boleto.estado = 'V'
             boleto.fecha_venta = timezone.now()
+            boleto.vendido_por = request.user
             boleto.save()
             
             # Procesar comprobante si existe
@@ -699,6 +701,46 @@ class AdminDashboardView(StaffRequiredMixin, TemplateView):
         })
         
         return context
+
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminMisVentasView(StaffRequiredMixin, TemplateView):
+    template_name = 'rifas/admin/mis_ventas.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        mis_boletos = Boleto.objects.filter(
+            vendido_por=user, estado='V'
+        ).select_related('rifa', 'participante').order_by('-fecha_venta')
+
+        total_vendidos = mis_boletos.count()
+
+        ventas_por_rifa = {}
+        for boleto in mis_boletos:
+            rifa_nombre = boleto.rifa.nombre
+            if rifa_nombre not in ventas_por_rifa:
+                ventas_por_rifa[rifa_nombre] = {
+                    'rifa': boleto.rifa,
+                    'boletos': [],
+                    'count': 0,
+                    'total': 0,
+                }
+            ventas_por_rifa[rifa_nombre]['boletos'].append(boleto)
+            ventas_por_rifa[rifa_nombre]['count'] += 1
+            ventas_por_rifa[rifa_nombre]['total'] += float(boleto.rifa.precio_boleto)
+
+        total_ingresos = sum(v['total'] for v in ventas_por_rifa.values())
+
+        context.update({
+            'mis_boletos': mis_boletos,
+            'total_vendidos': total_vendidos,
+            'total_ingresos': total_ingresos,
+            'ventas_por_rifa': ventas_por_rifa,
+        })
+        return context
+
 
 class AdminRifasListView(StaffRequiredMixin, ListView):
     model = Rifa

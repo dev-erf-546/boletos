@@ -22,6 +22,8 @@ ALLOWED_HOSTS = [
     "boletos.pulsarmex.com",
     "www.boletos.pulsarmex.com",
     "pulsarmex.com",
+    "localhost",
+
 ]
 DEBUG = os.getenv('DEBUG') == 'True'
 #ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
@@ -220,7 +222,8 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         'https://boletos.pulsarmex.com',
         'https://www.boletos.pulsarmex.com',
-        'https://pulsarmex.com'
+        'https://pulsarmex.com',
+        'http://localhost',
     ]
     
     # Cookies de sesión
