@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    {% load static %}
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -85,11 +86,11 @@
         }
 
         .heart-icon {
-            font-size: 3.2rem;
             display: block;
-            margin-bottom: 8px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
-            line-height: 1;
+            margin: 0 auto 10px;
+            width: 90px;
+            height: auto;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.2));
         }
 
         .boleto-title {
@@ -222,6 +223,7 @@
         .icon-calendar { background: linear-gradient(135deg, #dc2626, #b91c1c); }
         .icon-ticket { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
         .icon-clock { background: linear-gradient(135deg, #0891b2, #0e7490); }
+        .icon-location { background: linear-gradient(135deg, #ea4335, #c62828); }
 
         .info-text {
             flex: 1;
@@ -342,7 +344,7 @@
                         {% if boleto %}
                         <!-- ===== BOLETO ENCONTRADO ===== -->
                         <div class="boleto-header">
-                            <span class="heart-icon">&#10084;&#65039;</span>
+                            <img src="{% static 'img/corazon_sagrado.png' %}" alt="Sagrado Corazón" class="heart-icon">
                             <div class="boleto-title">{{ rifa.nombre|upper }}</div>
                             <div class="boleto-subtitle">Sagrado Corazón de Jesús</div>
                         </div>
@@ -406,14 +408,26 @@
                                 </div>
                             </div>
 
-                            {% if boleto.fecha_venta %}
+                            {% if fecha_compra_texto %}
                             <div class="info-row">
                                 <div class="info-icon icon-ticket">
                                     <i class="bi bi-receipt"></i>
                                 </div>
                                 <div class="info-text">
                                     <div class="info-label">Fecha de Compra</div>
-                                    <div class="info-value">{{ boleto.fecha_venta|date:"d \d\e F \d\e Y" }}</div>
+                                    <div class="info-value">{{ fecha_compra_texto }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if participante.direccion %}
+                            <div class="info-row">
+                                <div class="info-icon icon-location">
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                </div>
+                                <div class="info-text">
+                                    <div class="info-label">Dirección</div>
+                                    <div class="info-value">{{ participante.direccion }}</div>
                                 </div>
                             </div>
                             {% endif %}
@@ -441,7 +455,7 @@
                         {% else %}
                         <!-- ===== BOLETO NO ENCONTRADO ===== -->
                         <div class="boleto-header">
-                            <span class="heart-icon">&#10084;&#65039;</span>
+                            <img src="{% static 'img/corazon_sagrado.png' %}" alt="Sagrado Corazón" class="heart-icon">
                             <div class="boleto-title">VERIFICACIÓN DE BOLETO</div>
                             <div class="boleto-subtitle">Sagrado Corazón de Jesús</div>
                         </div>

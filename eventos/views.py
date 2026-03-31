@@ -382,12 +382,18 @@ def verificar_boleto_publico(request, codigo_qr):
         fecha = rifa.fecha_sorteo
         fecha_sorteo_texto = f"{fecha.day} de {MESES_ES.get(fecha.month, '')} de {fecha.year}"
 
+        fecha_compra_texto = ''
+        if boleto.fecha_venta:
+            fv = boleto.fecha_venta
+            fecha_compra_texto = f"{fv.day} de {MESES_ES.get(fv.month, '')} de {fv.year}"
+
         context = {
             'boleto': boleto,
             'rifa': rifa,
             'participante': participante,
             'qr': qr,
             'fecha_sorteo_texto': fecha_sorteo_texto,
+            'fecha_compra_texto': fecha_compra_texto,
         }
     except QRBoleto.DoesNotExist:
         context = {'boleto': None}
