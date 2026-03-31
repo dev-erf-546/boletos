@@ -28,6 +28,8 @@ ALLOWED_HOSTS = [
 DEBUG = os.getenv('DEBUG') == 'True'
 #ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 
+SITE_URL = os.getenv('SITE_URL', 'https://boletos.pulsarmex.com')
+
 
 # Application definition
 
