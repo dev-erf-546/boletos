@@ -118,7 +118,7 @@ def generar_qr_boleto(qr_instance):
 
         # --- Generar QR con URL de verificación ---
         base_url = getattr(settings, 'SITE_URL', 'https://boletos.pulsarmex.com')
-        qr_url = f"{base_url}/api/verificar-qr/{qr_instance.codigo}/"
+        qr_url = f"{base_url}/boleto/{qr_instance.codigo}/"
 
         qr = qrcode.QRCode(
             version=None,

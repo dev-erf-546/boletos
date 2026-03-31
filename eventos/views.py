@@ -339,6 +339,7 @@ class ValidarComprobanteView(StaffRequiredMixin, UpdateView):
         return response
     
 def verificar_qr(request, codigo_qr):
+    """Endpoint JSON para el escáner QR del panel admin."""
     try:
         qr = QRBoleto.objects.get(codigo=codigo_qr, activo=True)
         boleto = qr.boleto
@@ -362,6 +363,36 @@ def verificar_qr(request, codigo_qr):
         return JsonResponse(data)
     except QRBoleto.DoesNotExist:
         return JsonResponse({'valido': False}, status=404)
+
+
+MESES_ES = {
+    1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril', 5: 'mayo', 6: 'junio',
+    7: 'julio', 8: 'agosto', 9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
+}
+
+def verificar_boleto_publico(request, codigo_qr):
+    """Página pública HTML para verificar boletos escaneando el QR."""
+    try:
+        qr = QRBoleto.objects.select_related(
+            'boleto', 'boleto__rifa', 'boleto__participante'
+        ).get(codigo=codigo_qr, activo=True)
+        boleto = qr.boleto
+        rifa = boleto.rifa
+        participante = boleto.participante
+        fecha = rifa.fecha_sorteo
+        fecha_sorteo_texto = f"{fecha.day} de {MESES_ES.get(fecha.month, '')} de {fecha.year}"
+
+        context = {
+            'boleto': boleto,
+            'rifa': rifa,
+            'participante': participante,
+            'qr': qr,
+            'fecha_sorteo_texto': fecha_sorteo_texto,
+        }
+    except QRBoleto.DoesNotExist:
+        context = {'boleto': None}
+
+    return render(request, 'rifas/verificar_boleto.html', context)
 
 
 def login_view(request):

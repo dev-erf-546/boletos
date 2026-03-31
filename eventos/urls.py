@@ -45,4 +45,7 @@ urlpatterns = [
     
     # API
     path('api/verificar-qr/<uuid:codigo_qr>/', views.verificar_qr, name='verificar_qr'),
+
+    # Verificación pública de boleto (enlace del QR)
+    path('boleto/<uuid:codigo_qr>/', views.verificar_boleto_publico, name='verificar_boleto_publico'),
 ]

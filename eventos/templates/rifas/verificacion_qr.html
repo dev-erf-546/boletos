@@ -75,8 +75,14 @@
                 // Ocultar scanner
                 document.getElementById('qr-reader').style.display = 'none';
                 
-                // Mostrar datos del boleto
-                fetch(decodedText)
+                // Extraer UUID del QR (formato: .../boleto/{uuid}/)
+                let apiUrl = decodedText;
+                const uuidMatch = decodedText.match(/boleto\/([0-9a-f-]{36})\/?/i);
+                if (uuidMatch) {
+                    apiUrl = '/api/verificar-qr/' + uuidMatch[1] + '/';
+                }
+
+                fetch(apiUrl)
                     .then(response => response.json())
                     .then(data => {
                         if (data.valido) {
