@@ -675,9 +675,13 @@ function getWhatsappNumberForTicket(numeroBoleto) {
         return "529361104359"; // Vendedor 4
     } else if (numeroBoleto >= 1001 && numeroBoleto <= 1250) {
         return "529361010013"; // Vendedor 5
-    } else if (numeroBoleto >= 1251 && numeroBoleto <= 1500) {
-        return "529932794832"; // Vendedor 6
+    } else if (numeroBoleto >= 1251 && numeroBoleto <= 1400) {
+        return "529365630392"; // Vendedor 6
+    } else if (numeroBoleto >= 1401 && numeroBoleto <= 1500) {
+        return "529932794832"; // Vendedor 7
     }
+
+    
     // Número por defecto (por si acaso)
     return "529933933115";
 }
