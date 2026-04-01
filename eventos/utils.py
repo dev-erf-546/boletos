@@ -54,6 +54,58 @@ def _center_text(draw, text, font, y, canvas_width, fill):
     return bbox[3] - bbox[1]
 
 
+def _overlay_logo_on_qr(qr_img):
+    """
+    Superpone el logo institucional en el centro del QR.
+    Usa nivel H de corrección de errores (~30% del QR puede estar cubierto).
+    El logo ocupa ~22% del área del QR para mantener margen de escaneo seguro.
+    """
+    logo_path = os.path.join(ASSETS_DIR, 'logo_qr.png')
+    if not os.path.exists(logo_path):
+        logger.warning("Logo no encontrado en %s, QR sin logo", logo_path)
+        return qr_img
+
+    try:
+        logo = Image.open(logo_path).convert('RGBA')
+        qr_w, qr_h = qr_img.size
+
+        # El logo ocupa ~22% del ancho del QR (seguro con ERROR_CORRECT_H)
+        logo_max = int(qr_w * 0.22)
+        logo.thumbnail((logo_max, logo_max), Image.Resampling.LANCZOS)
+        logo_w, logo_h = logo.size
+
+        # Padding alrededor del logo para el fondo blanco
+        padding = int(logo_w * 0.18)
+        bg_w = logo_w + padding * 2
+        bg_h = logo_h + padding * 2
+
+        # Fondo blanco con bordes redondeados detrás del logo
+        bg = Image.new('RGBA', (bg_w, bg_h), (0, 0, 0, 0))
+        bg_draw = ImageDraw.Draw(bg)
+        radius = int(bg_w * 0.15)
+        bg_draw.rounded_rectangle(
+            [(0, 0), (bg_w - 1, bg_h - 1)],
+            radius=radius,
+            fill=(255, 255, 255, 255),
+        )
+
+        # Pegar el logo centrado sobre el fondo blanco
+        logo_offset_x = (bg_w - logo_w) // 2
+        logo_offset_y = (bg_h - logo_h) // 2
+        bg.paste(logo, (logo_offset_x, logo_offset_y), logo)
+
+        # Pegar el bloque (fondo + logo) en el centro del QR
+        pos_x = (qr_w - bg_w) // 2
+        pos_y = (qr_h - bg_h) // 2
+        qr_img.paste(bg, (pos_x, pos_y), bg)
+
+        return qr_img
+
+    except Exception as e:
+        logger.error("Error superponiendo logo en QR: %s", e, exc_info=True)
+        return qr_img
+
+
 def generar_qr_boleto(qr_instance):
     """
     Genera el boleto digital usando el patrón de fondo profesional.
@@ -132,6 +184,10 @@ def generar_qr_boleto(qr_instance):
 
         qr_size = int(w * 0.375)
         qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+
+        # --- Superponer logo en el centro del QR (estilo WhatsApp) ---
+        qr_img = _overlay_logo_on_qr(qr_img)
+
         qr_x = (w - qr_size) // 2
         qr_y = int(h * 0.545)
 
