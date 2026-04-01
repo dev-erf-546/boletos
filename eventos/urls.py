@@ -42,6 +42,11 @@ urlpatterns = [
     path('admin/asignar-boleto/', views.AdminAsignarBoletoView.as_view(), name='admin_asignar_boleto'),
     path('admin/boletos/<int:boleto_id>/reservar/', views.reservar_boleto, name='reservar_boleto'),
     path('admin/boletos/<int:boleto_id>/liberar/', views.liberar_boleto, name='liberar_boleto'),
+    path(
+        'admin/boletos/<int:boleto_id>/liberar-vendido/',
+        views.liberar_boleto_vendido,
+        name='liberar_boleto_vendido',
+    ),
     
     # API
     path('api/verificar-qr/<uuid:codigo_qr>/', views.verificar_qr, name='verificar_qr'),

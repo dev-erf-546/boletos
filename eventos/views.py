@@ -698,6 +698,54 @@ def liberar_boleto(request, boleto_id):
             'error': str(e)
         }, status=500)
 
+
+def _usuario_puede_liberar_boleto_vendido(user):
+    return user.is_authenticated and user.username == 'eramos'
+
+
+@require_POST
+@login_required
+@user_passes_test(_usuario_puede_liberar_boleto_vendido)
+def liberar_boleto_vendido(request, boleto_id):
+    """
+    Devuelve un boleto vendido a disponible (solo usuario 'eramos').
+    Elimina comprobante y QR asociados.
+    """
+    try:
+        with transaction.atomic():
+            boleto = get_object_or_404(
+                Boleto.objects.select_for_update(),
+                pk=boleto_id,
+                estado='V',
+            )
+            ComprobantePago.objects.filter(boleto=boleto).delete()
+            QRBoleto.objects.filter(boleto=boleto).delete()
+            boleto.estado = 'D'
+            boleto.participante = None
+            boleto.fecha_reserva = None
+            boleto.fecha_venta = None
+            boleto.vendido_por = None
+            boleto.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Boleto liberado y reseteado correctamente',
+            'boleto_id': boleto.id,
+            'nuevo_estado': 'Disponible',
+        })
+    except Http404:
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Boleto no encontrado o no está vendido',
+            },
+            status=404,
+        )
+    except Exception as e:
+        logger.exception('Error al liberar boleto vendido')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # ==================== PANEL DE ADMINISTRACIÓN ====================
 
 @method_decorator(staff_member_required, name='dispatch')

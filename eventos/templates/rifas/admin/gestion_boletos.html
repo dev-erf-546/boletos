@@ -287,6 +287,13 @@
                                         title="Asignar boleto">
                                         <i class="bi bi-person-plus"></i>
                                     </button>
+                                {% elif boleto.estado == 'V' and request.user.username == 'eramos' %}
+                                    <button type="button" class="btn btn-outline-danger btn-action liberar-vendido-btn"
+                                        data-liberar-vendido-url="{% url 'rifas:liberar_boleto_vendido' boleto.id %}"
+                                        data-boleto-numero="{{ boleto.numero }}"
+                                        title="Resetear venta (solo administración)">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
                                 {% endif %}
                                 
                                 {% if boleto.estado == 'V' and boleto.qr and boleto.qr.imagen_qr %}
@@ -589,6 +596,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Liberar boleto vendido (resetear a disponible; solo usuario eramos)
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.liberar-vendido-btn')) {
+            const btn = e.target.closest('.liberar-vendido-btn');
+            const num = btn.dataset.boletoNumero || '';
+            if (!confirm(
+                '¿Resetear la venta del boleto #' + num + '? ' +
+                'Se eliminarán comprobante y QR; el número volverá a estar disponible.'
+            )) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const response = await fetch(btn.dataset.liberarVendidoUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || response.statusText || 'No autorizado'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>';
+                }
+            } catch (err) {
+                alert('Error de conexión');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>';
+            }
+        }
+    });
+
     // Liberar boleto
     document.addEventListener('click', async function(e) {
         if (e.target.closest('.liberar-btn')) {
