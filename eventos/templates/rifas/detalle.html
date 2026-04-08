@@ -3,7 +3,6 @@
 {% block title %}{{ rifa.nombre }}{% endblock %}
 
 {% block extra_css %}
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <style>
     /* Optimizaciones para iOS */
     * {
@@ -436,6 +435,107 @@
     @media (max-width: 991px) {
         .btn-ubicacion { display: inline-flex; }
     }
+
+    /* Imagen del premio: vista previa + ampliar (móvil) */
+    .rifa-hero-img-wrap {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        cursor: pointer;
+        border-radius: 12px;
+        overflow: hidden;
+        -webkit-tap-highlight-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .rifa-hero-img-wrap:focus-visible {
+        outline: 3px solid rgba(255, 255, 255, 0.85);
+        outline-offset: 4px;
+    }
+
+    .rifa-hero-thumb {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        max-height: 200px;
+        object-fit: contain;
+        transition: transform 0.25s ease, filter 0.25s ease;
+    }
+
+    @media (max-width: 767px) {
+        .rifa-hero-thumb {
+            max-height: min(52vw, 280px);
+        }
+    }
+
+    .rifa-hero-img-wrap:active .rifa-hero-thumb {
+        transform: scale(0.98);
+    }
+
+    .rifa-img-tap-hint {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 0.35rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+        color: #fff;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+
+    @media (min-width: 768px) {
+        .rifa-img-tap-hint {
+            font-size: 0.7rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .rifa-hero-img-wrap:hover .rifa-img-tap-hint {
+            opacity: 1;
+        }
+    }
+
+    #rifaImagenModal .modal-content {
+        background: #0d0d0d;
+        min-height: 100%;
+    }
+
+    #rifaImagenModal .modal-body {
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+            env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    }
+
+    .rifa-imagen-ampliada {
+        display: block;
+        margin: 0 auto;
+        max-width: 100%;
+        width: auto;
+        height: auto;
+        max-height: min(92dvh, 92vh);
+        object-fit: contain;
+        touch-action: pan-x pan-y pinch-zoom;
+    }
+
+    /* Tarjeta Disponibles: en móvil lleva a la sección de boletos con filtro */
+    @media (max-width: 767px) {
+        .stats-card-tap-disponibles {
+            cursor: pointer;
+            -webkit-tap-highlight-color: rgba(40, 167, 69, 0.2);
+        }
+
+        .stats-card-tap-disponibles:active {
+            transform: scale(0.98);
+        }
+    }
 </style>
 {% endblock %}
 
@@ -452,8 +552,23 @@
             </div>
             <div class="col-md-4 text-md-end mt-3 mt-md-0">
                 {% if rifa.imagen %}
-                <img src="{{ rifa.imagen.url }}" alt="{{ rifa.nombre }}" 
-                     class="img-fluid rounded shadow-lg" style="max-height: 200px;">
+                <div class="rifa-hero-img-wrap mx-md-auto"
+                     role="button"
+                     tabindex="0"
+                     data-bs-toggle="modal"
+                     data-bs-target="#rifaImagenModal"
+                     aria-label="Ampliar imagen de {{ rifa.nombre|escape }}">
+                    <img src="{{ rifa.imagen.url }}"
+                         alt="{{ rifa.nombre }}"
+                         class="rifa-hero-thumb rounded shadow-lg"
+                         loading="lazy"
+                         decoding="async">
+                    <span class="rifa-img-tap-hint">
+                        <i class="bi bi-zoom-in" aria-hidden="true"></i>
+                        <span class="d-md-none">Toca para ampliar</span>
+                        <span class="d-none d-md-inline">Clic para ampliar</span>
+                    </span>
+                </div>
                 {% endif %}
                 <div class="mt-3">
                     <a href="https://maps.google.com/?q=17.7573451,-92.7281494" 
@@ -468,10 +583,31 @@
     </div>
 </div>
 
+{% if rifa.imagen %}
+<!-- Vista ampliada de la imagen del premio (ideal en móvil: pantalla completa + zoom con pellizco) -->
+<div class="modal fade" id="rifaImagenModal" tabindex="-1" aria-labelledby="rifaImagenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0">
+            <div class="modal-header border-0 py-2 flex-shrink-0">
+                <h2 class="modal-title text-white fs-6 mb-0 text-truncate pe-2" id="rifaImagenModalLabel">{{ rifa.nombre }}</h2>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body d-flex align-items-center justify-content-center">
+                <img src="{{ rifa.imagen.url }}"
+                     alt="{{ rifa.nombre }}"
+                     class="rifa-imagen-ampliada"
+                     loading="lazy"
+                     decoding="async">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="container">
     <!-- Estadísticas -->
     <div class="row mb-4">
-        <div class="col-md-3 mb-3">
+        {% comment %} <div class="col-md-3 mb-3">
             <div class="card stats-card vendidos h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -484,7 +620,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
         <div class="col-md-3 mb-3">
             <div class="card stats-card reservados h-100">
                 <div class="card-body">
@@ -500,7 +636,7 @@
             </div>
         </div>
         <div class="col-md-3 mb-3">
-            <div class="card stats-card disponibles h-100">
+            <div class="card stats-card disponibles h-100 stats-card-tap-disponibles" id="statsDisponiblesCard">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -508,12 +644,12 @@
                             <h2 class="mb-0 text-success">{{ boletos_disponibles }}</h2>
                             <small class="text-muted">{{ porcentaje_disponibles }}%</small>
                         </div>
-                        <i class="bi bi-ticket-perforated text-success" style="font-size: 2.5rem;"></i>
+                        <i class="bi bi-ticket-perforated text-success" style="font-size: 2.5rem;" aria-hidden="true"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
+        {% comment %} <div class="col-md-3 mb-3">
             <div class="card stats-card validacion h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -526,7 +662,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
     </div>
 
     <!-- Información de la Rifa -->
@@ -554,7 +690,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        {% comment %} <div class="col-md-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0"><i class="bi bi-graph-up"></i> Progreso</h5>
@@ -574,11 +710,11 @@
                     </p>
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
     </div>
 
-    <!-- Panel de Controles -->
-    <div class="controls-panel">
+    <!-- Panel de Controles (ancla: móvil, toque en tarjeta Disponibles) -->
+    <div class="controls-panel" id="seccionSeleccionBoletos">
         <div class="row align-items-center">
             <div class="col-md-4 mb-3 mb-md-0">
                 <div class="input-group">
@@ -658,6 +794,18 @@
 {# Modificado: 2026-03-17 22:10:50 - Asignación de números de WhatsApp por rangos de boletos #}
 {% block extra_js %}
 <script>
+(function () {
+    const wrap = document.querySelector('.rifa-hero-img-wrap');
+    const modalEl = document.getElementById('rifaImagenModal');
+    if (!wrap || !modalEl || typeof bootstrap === 'undefined') return;
+    wrap.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    });
+})();
+
 // Configuración
 const apiDataElement = document.getElementById('api-data');
 const apiEndpoint = apiDataElement ? apiDataElement.dataset.apiUrl : '';
@@ -729,6 +877,30 @@ function setupEventListeners() {
             filterTickets();
         });
     });
+
+    // Móvil: tocar la tarjeta "Disponibles" → filtro Disponibles + scroll a la sección de boletos
+    const statsDisponiblesCard = document.getElementById('statsDisponiblesCard');
+    const seccionSeleccionBoletos = document.getElementById('seccionSeleccionBoletos');
+    const mqMobile = window.matchMedia('(max-width: 767px)');
+
+    function activarDisponiblesYScroll() {
+        const radio = document.getElementById('filterAvailable');
+        if (radio) {
+            radio.checked = true;
+            currentFilter = 'disponible';
+            filterTickets();
+        }
+        if (seccionSeleccionBoletos) {
+            seccionSeleccionBoletos.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    if (statsDisponiblesCard && seccionSeleccionBoletos) {
+        statsDisponiblesCard.addEventListener('click', () => {
+            if (!mqMobile.matches) return;
+            activarDisponiblesYScroll();
+        });
+    }
     
     // Botón limpiar selección
     const clearSelectionBtn = document.getElementById('clearSelectionBtn');
