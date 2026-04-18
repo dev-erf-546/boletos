@@ -628,7 +628,140 @@ class AdminAsignarBoletoView(StaffRequiredMixin, View):
         except Exception as e:
             logger.error(f"Error en asignación: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
-        
+
+
+@method_decorator(staff_member_required, name='dispatch')
+class AdminAsignarBoletosMasivoView(StaffRequiredMixin, View):
+    """Asigna el mismo participante y comprobante (opcional) a un rango de números de boleto."""
+
+    MAX_BOLETOS_POR_LOTE = 300
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def post(self, request, *args, **kwargs):
+        import re
+
+        try:
+            rifa_id = request.POST.get('rifa_id')
+            raw_inicio = request.POST.get('numero_inicio')
+            raw_fin = request.POST.get('numero_fin')
+            participante_nombre = request.POST.get('participante[nombre]')
+            participante_direccion = request.POST.get('participante[direccion]')
+            participante_telefono = request.POST.get('participante[telefono]')
+
+            if not all([rifa_id, raw_inicio, raw_fin, participante_nombre, participante_telefono]):
+                return JsonResponse({'error': 'Datos incompletos'}, status=400)
+
+            try:
+                numero_inicio = int(raw_inicio)
+                numero_fin = int(raw_fin)
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'Rango de números inválido'}, status=400)
+
+            if numero_inicio > numero_fin:
+                numero_inicio, numero_fin = numero_fin, numero_inicio
+
+            cantidad = numero_fin - numero_inicio + 1
+            if cantidad > self.MAX_BOLETOS_POR_LOTE:
+                return JsonResponse(
+                    {
+                        'error': (
+                            f'El rango supera el máximo permitido '
+                            f'({self.MAX_BOLETOS_POR_LOTE} boletos por operación).'
+                        )
+                    },
+                    status=400,
+                )
+
+            telefono_limpio = re.sub(r'\D', '', participante_telefono)
+            if len(telefono_limpio) != 10:
+                return JsonResponse({'error': 'El teléfono debe tener exactamente 10 dígitos'}, status=400)
+
+            rifa = get_object_or_404(Rifa, pk=rifa_id)
+            esperados = set(range(numero_inicio, numero_fin + 1))
+
+            with transaction.atomic():
+                boletos = list(
+                    Boleto.objects.select_for_update()
+                    .filter(rifa_id=rifa.pk, numero__gte=numero_inicio, numero__lte=numero_fin)
+                    .order_by('numero')
+                )
+                encontrados = {b.numero for b in boletos}
+                if len(encontrados) != len(esperados):
+                    faltantes = sorted(esperados - encontrados)
+                    return JsonResponse(
+                        {
+                            'error': (
+                                'No existen todos los números en esta rifa. '
+                                f'Faltan: {faltantes[:30]}'
+                                + ('…' if len(faltantes) > 30 else '')
+                            )
+                        },
+                        status=400,
+                    )
+
+                no_asignables = [b.numero for b in boletos if b.estado not in ('D', 'R')]
+                if no_asignables:
+                    return JsonResponse(
+                        {
+                            'error': (
+                                'Solo se pueden asignar boletos disponibles o reservados. '
+                                f'No aplican: {no_asignables[:40]}'
+                                + ('…' if len(no_asignables) > 40 else '')
+                            )
+                        },
+                        status=400,
+                    )
+
+                participante = Participante.objects.create(
+                    direccion=participante_direccion,
+                    nombre_completo=participante_nombre,
+                    telefono=telefono_limpio,
+                )
+
+                archivo = request.FILES.get('comprobante[archivo]')
+
+                for boleto in boletos:
+                    boleto.participante = participante
+                    boleto.estado = 'V'
+                    boleto.fecha_venta = timezone.now()
+                    boleto.vendido_por = request.user
+                    boleto.save()
+
+                    if archivo:
+                        archivo.seek(0)
+                        comprobante = ComprobantePago(
+                            boleto=boleto,
+                            imagen=archivo,
+                            estado='A',
+                            revisado_por=request.user,
+                            fecha_revision=timezone.now(),
+                        )
+                        comprobante.save()
+
+                    qr_instance, _created = QRBoleto.objects.get_or_create(
+                        boleto=boleto,
+                        defaults={'codigo': str(uuid.uuid4())},
+                    )
+                    if generar_qr_boleto(qr_instance):
+                        logger.info(f"Boleto masivo {boleto.numero} generado exitosamente")
+                    else:
+                        logger.error(f"Error al generar boleto masivo {boleto.numero}")
+
+            return JsonResponse(
+                {
+                    'success': True,
+                    'message': f'Se asignaron {len(boletos)} boletos correctamente',
+                    'asignados': len(boletos),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error en asignación masiva: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
 @require_POST
 @login_required
 @user_passes_test(lambda u: u.is_staff)

@@ -40,6 +40,11 @@ urlpatterns = [
     path('admin/descargar-qrs/', views.descargar_qrs_aprobados, name='descargar_qrs'),
     path('admin/rifas/<int:rifa_id>/boletos/', views.AdminGestionBoletosView.as_view(), name='admin_gestion_boletos'),
     path('admin/asignar-boleto/', views.AdminAsignarBoletoView.as_view(), name='admin_asignar_boleto'),
+    path(
+        'admin/asignar-boletos-masivo/',
+        views.AdminAsignarBoletosMasivoView.as_view(),
+        name='admin_asignar_boletos_masivo',
+    ),
     path('admin/boletos/<int:boleto_id>/reservar/', views.reservar_boleto, name='reservar_boleto'),
     path('admin/boletos/<int:boleto_id>/liberar/', views.liberar_boleto, name='liberar_boleto'),
     path(

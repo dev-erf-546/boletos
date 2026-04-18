@@ -200,9 +200,14 @@
 
 <!-- Tabla de Boletos -->
 <div class="card">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0"><i class="bi bi-ticket-perforated"></i> Listado de Boletos</h5>
-        <span class="badge bg-light text-dark">{{ boletos|length }} resultado(s)</span>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-light btn-sm" id="btnAsignacionMasiva" title="Asignar un rango de números al mismo participante">
+                <i class="bi bi-people-fill"></i> Asignación masiva
+            </button>
+            <span class="badge bg-light text-dark">{{ boletos|length }} resultado(s)</span>
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -389,6 +394,68 @@
     </div>
 </div>
 
+<!-- Modal Asignación masiva (mismo participante para rango de números) -->
+<div class="modal fade" id="asignarMasivoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-people-fill"></i> Asignación masiva</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Indica el rango de <strong>números de boleto</strong> (ej. 226 al 250). Se aplican los mismos datos de participante
+                    y, si subes comprobante, se registrará una copia por cada boleto.
+                </p>
+                <form id="asignarMasivoForm">
+                    <input type="hidden" id="masivoRifaId" value="{{ rifa.pk }}">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label" for="id_masivo_desde">Desde (número)</label>
+                            <input type="number" class="form-control" id="id_masivo_desde" min="1" required placeholder="226">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="id_masivo_hasta">Hasta (número)</label>
+                            <input type="number" class="form-control" id="id_masivo_hasta" min="1" required placeholder="250">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">Datos del participante</h6>
+                            <div class="mb-3">
+                                <label for="id_masivo_nombre" class="form-label">Nombre completo</label>
+                                <input type="text" class="form-control" id="id_masivo_nombre" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="id_masivo_direccion" class="form-label">Dirección</label>
+                                <input type="text" class="form-control" id="id_masivo_direccion">
+                            </div>
+                            <div class="mb-3">
+                                <label for="id_masivo_telefono" class="form-label">Teléfono <small class="text-muted">(10 dígitos)</small></label>
+                                <input type="tel" class="form-control" id="id_masivo_telefono" maxlength="10" placeholder="1234567890" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">Comprobante de pago</h6>
+                            <div class="mb-3">
+                                <label for="id_masivo_archivo" class="form-label">Comprobante (opcional)</label>
+                                <input type="file" class="form-control" id="id_masivo_archivo" accept="image/jpeg,image/png,image/jpg,application/pdf">
+                                <small class="text-muted">Si lo subes, se asocia a cada boleto del rango.</small>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarAsignacionMasiva">
+                    <i class="bi bi-check-circle"></i> Asignar rango
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Overlay para QR -->
 <div id="qrOverlay" style="display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.9); z-index: 2000; overflow-y: auto; -webkit-overflow-scrolling: touch;">
     <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px;">
@@ -560,6 +627,100 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 confirmarBtn.disabled = false;
                 confirmarBtn.innerHTML = '<i class="bi bi-check-circle"></i> Asignar Boleto';
+            }
+        });
+    }
+
+    // Modal asignación masiva
+    const asignarMasivoModalEl = document.getElementById('asignarMasivoModal');
+    const asignarMasivoModal = asignarMasivoModalEl ? new bootstrap.Modal(asignarMasivoModalEl) : null;
+    const btnAsignacionMasiva = document.getElementById('btnAsignacionMasiva');
+    if (btnAsignacionMasiva && asignarMasivoModal) {
+        btnAsignacionMasiva.addEventListener('click', function() {
+            asignarMasivoModal.show();
+            setTimeout(function() {
+                const tel = document.getElementById('id_masivo_telefono');
+                if (!tel || tel._masivoPhoneBound) return;
+                tel._masivoPhoneBound = true;
+                tel.addEventListener('input', function(e) {
+                    let v = e.target.value.replace(/\D/g, '');
+                    if (v.length > 10) v = v.substring(0, 10);
+                    e.target.value = v;
+                });
+            }, 50);
+        });
+    }
+
+    const confirmarMasivoBtn = document.getElementById('confirmarAsignacionMasiva');
+    if (confirmarMasivoBtn) {
+        confirmarMasivoBtn.addEventListener('click', async function() {
+            const rifaIdEl = document.getElementById('masivoRifaId');
+            const desde = document.getElementById('id_masivo_desde');
+            const hasta = document.getElementById('id_masivo_hasta');
+            const nombre = document.getElementById('id_masivo_nombre');
+            const direccion = document.getElementById('id_masivo_direccion');
+            const telefonoInput = document.getElementById('id_masivo_telefono');
+            const archivoInput = document.getElementById('id_masivo_archivo');
+
+            if (!rifaIdEl || !desde || !hasta || !nombre || !telefonoInput) return;
+
+            const n0 = parseInt(desde.value, 10);
+            const n1 = parseInt(hasta.value, 10);
+            if (isNaN(n0) || isNaN(n1) || n0 < 1 || n1 < 1) {
+                alert('Indica un rango válido de números de boleto.');
+                return;
+            }
+
+            let a = n0;
+            let b = n1;
+            if (a > b) { const t = a; a = b; b = t; }
+
+            const telefono = telefonoInput.value.replace(/\D/g, '');
+            if (telefono.length !== 10) {
+                alert('El teléfono debe tener exactamente 10 dígitos');
+                telefonoInput.focus();
+                return;
+            }
+            telefonoInput.value = telefono;
+
+            const cantidad = b - a + 1;
+            if (!confirm('¿Asignar ' + cantidad + ' boleto(s) del #' + a + ' al #' + b + ' al mismo participante?')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('rifa_id', rifaIdEl.value);
+            formData.append('numero_inicio', String(a));
+            formData.append('numero_fin', String(b));
+            formData.append('participante[nombre]', nombre.value.trim());
+            formData.append('participante[direccion]', direccion ? direccion.value : '');
+            formData.append('participante[telefono]', telefono);
+
+            if (archivoInput?.files[0]) {
+                formData.append('comprobante[archivo]', archivoInput.files[0]);
+            }
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            confirmarMasivoBtn.disabled = true;
+            confirmarMasivoBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+            try {
+                const response = await fetch('{% url "rifas:admin_asignar_boletos_masivo" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-CSRFToken': csrfToken}
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo completar la asignación masiva'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                confirmarMasivoBtn.disabled = false;
+                confirmarMasivoBtn.innerHTML = '<i class="bi bi-check-circle"></i> Asignar rango';
             }
         });
     }
