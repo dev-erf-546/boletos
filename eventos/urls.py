@@ -46,6 +46,7 @@ urlpatterns = [
         name='admin_asignar_boletos_masivo',
     ),
     path('admin/boletos/<int:boleto_id>/reservar/', views.reservar_boleto, name='reservar_boleto'),
+    path('admin/reservar-boletos-masivo/', views.reservar_boletos_masivo, name='reservar_boletos_masivo'),
     path('admin/boletos/<int:boleto_id>/liberar/', views.liberar_boleto, name='liberar_boleto'),
     path(
         'admin/boletos/<int:boleto_id>/liberar-vendido/',

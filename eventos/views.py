@@ -798,7 +798,99 @@ def reservar_boleto(request, boleto_id):
             'success': False,
             'error': str(e)
         }, status=500)
-    
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def reservar_boletos_masivo(request):
+    """
+    Reserva todos los boletos disponibles (estado D) en un rango de números de la rifa.
+    Misma regla que reservar_boleto: solo aplica a boletos disponibles.
+    """
+    MAX_BOLETOS = 300
+    try:
+        rifa_id = request.POST.get('rifa_id')
+        raw_inicio = request.POST.get('numero_inicio')
+        raw_fin = request.POST.get('numero_fin')
+
+        if not all([rifa_id, raw_inicio, raw_fin]):
+            return JsonResponse({'success': False, 'error': 'Datos incompletos'}, status=400)
+
+        try:
+            numero_inicio = int(raw_inicio)
+            numero_fin = int(raw_fin)
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'error': 'Rango de números inválido'}, status=400)
+
+        if numero_inicio > numero_fin:
+            numero_inicio, numero_fin = numero_fin, numero_inicio
+
+        cantidad = numero_fin - numero_inicio + 1
+        if cantidad > MAX_BOLETOS:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'error': f'El rango supera el máximo permitido ({MAX_BOLETOS} boletos por operación).',
+                },
+                status=400,
+            )
+
+        rifa = get_object_or_404(Rifa, pk=rifa_id)
+        esperados = set(range(numero_inicio, numero_fin + 1))
+
+        with transaction.atomic():
+            boletos = list(
+                Boleto.objects.select_for_update()
+                .filter(rifa_id=rifa.pk, numero__gte=numero_inicio, numero__lte=numero_fin)
+                .order_by('numero')
+            )
+            encontrados = {b.numero for b in boletos}
+            if len(encontrados) != len(esperados):
+                faltantes = sorted(esperados - encontrados)
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'error': (
+                            'No existen todos los números en esta rifa. '
+                            f'Faltan: {faltantes[:30]}' + ('…' if len(faltantes) > 30 else '')
+                        ),
+                    },
+                    status=400,
+                )
+
+            no_disponibles = [b.numero for b in boletos if b.estado != 'D']
+            if no_disponibles:
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'error': (
+                            'Solo se pueden reservar boletos en estado disponible. '
+                            f'No aplican: {no_disponibles[:40]}'
+                            + ('…' if len(no_disponibles) > 40 else '')
+                        ),
+                    },
+                    status=400,
+                )
+
+            ahora = timezone.now()
+            for boleto in boletos:
+                boleto.estado = 'R'
+                boleto.fecha_reserva = ahora
+                boleto.save()
+
+        return JsonResponse(
+            {
+                'success': True,
+                'message': f'Se reservaron {len(boletos)} boletos correctamente',
+                'reservados': len(boletos),
+            }
+        )
+
+    except Exception as e:
+        logger.error(f'Error en reserva masiva: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @require_POST
 @login_required

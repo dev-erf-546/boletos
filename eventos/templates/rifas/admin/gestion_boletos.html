@@ -202,7 +202,10 @@
 <div class="card">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0"><i class="bi bi-ticket-perforated"></i> Listado de Boletos</h5>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+            <button type="button" class="btn btn-warning btn-sm text-dark" id="btnReservaMasiva" title="Reservar un rango de boletos disponibles">
+                <i class="bi bi-clock-history"></i> Reserva masiva
+            </button>
             <button type="button" class="btn btn-light btn-sm" id="btnAsignacionMasiva" title="Asignar un rango de números al mismo participante">
                 <i class="bi bi-people-fill"></i> Asignación masiva
             </button>
@@ -456,6 +459,43 @@
     </div>
 </div>
 
+<!-- Modal Reserva masiva (solo boletos disponibles en el rango) -->
+<div class="modal fade" id="reservarMasivoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-clock-history"></i> Reserva masiva</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Se marcarán como <strong>reservados</strong> todos los boletos <strong>disponibles</strong> entre los números indicados
+                    (ej. 300–399). Si algún número no existe en la rifa o no está disponible, no se realizará la operación.
+                </p>
+                <form id="reservarMasivoForm">
+                    <input type="hidden" id="reservarMasivoRifaId" value="{{ rifa.pk }}">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label" for="id_reserva_desde">Desde (número)</label>
+                            <input type="number" class="form-control" id="id_reserva_desde" min="1" required placeholder="300">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="id_reserva_hasta">Hasta (número)</label>
+                            <input type="number" class="form-control" id="id_reserva_hasta" min="1" required placeholder="399">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning text-dark" id="confirmarReservaMasiva">
+                    <i class="bi bi-check-circle"></i> Reservar rango
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Overlay para QR -->
 <div id="qrOverlay" style="display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.9); z-index: 2000; overflow-y: auto; -webkit-overflow-scrolling: touch;">
     <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px;">
@@ -627,6 +667,70 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 confirmarBtn.disabled = false;
                 confirmarBtn.innerHTML = '<i class="bi bi-check-circle"></i> Asignar Boleto';
+            }
+        });
+    }
+
+    // Modal reserva masiva
+    const reservarMasivoModalEl = document.getElementById('reservarMasivoModal');
+    const reservarMasivoModal = reservarMasivoModalEl ? new bootstrap.Modal(reservarMasivoModalEl) : null;
+    const btnReservaMasiva = document.getElementById('btnReservaMasiva');
+    if (btnReservaMasiva && reservarMasivoModal) {
+        btnReservaMasiva.addEventListener('click', function() {
+            reservarMasivoModal.show();
+        });
+    }
+
+    const confirmarReservaMasivaBtn = document.getElementById('confirmarReservaMasiva');
+    if (confirmarReservaMasivaBtn) {
+        confirmarReservaMasivaBtn.addEventListener('click', async function() {
+            const rifaIdEl = document.getElementById('reservarMasivoRifaId');
+            const desde = document.getElementById('id_reserva_desde');
+            const hasta = document.getElementById('id_reserva_hasta');
+            if (!rifaIdEl || !desde || !hasta) return;
+
+            const n0 = parseInt(desde.value, 10);
+            const n1 = parseInt(hasta.value, 10);
+            if (isNaN(n0) || isNaN(n1) || n0 < 1 || n1 < 1) {
+                alert('Indica un rango válido de números de boleto.');
+                return;
+            }
+
+            let a = n0;
+            let b = n1;
+            if (a > b) { const t = a; a = b; b = t; }
+
+            const cantidad = b - a + 1;
+            if (!confirm('¿Reservar ' + cantidad + ' boleto(s) del #' + a + ' al #' + b + '? (solo si todos están disponibles)')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('rifa_id', rifaIdEl.value);
+            formData.append('numero_inicio', String(a));
+            formData.append('numero_fin', String(b));
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            confirmarReservaMasivaBtn.disabled = true;
+            confirmarReservaMasivaBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+            try {
+                const response = await fetch('{% url "rifas:reservar_boletos_masivo" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-CSRFToken': csrfToken}
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo completar la reserva masiva'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                confirmarReservaMasivaBtn.disabled = false;
+                confirmarReservaMasivaBtn.innerHTML = '<i class="bi bi-check-circle"></i> Reservar rango';
             }
         });
     }
