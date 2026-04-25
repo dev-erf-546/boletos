@@ -1,0 +1,26 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Boletos digitales{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center p-4 p-md-5">
+                    <div class="text-muted mb-3" style="font-size: 3rem;">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <h4 class="mb-3">Boletos digitales</h4>
+                    <p class="lead mb-0 text-secondary">{{ mensaje }}</p>
+                    {% if lote %}
+                    <p class="small text-muted mt-4 mb-0">
+                        Rifa: {{ lote.rifa.nombre }}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

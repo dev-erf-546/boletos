@@ -82,31 +82,31 @@ TEMPLATES = [
 ]
 
 # LOGS
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        }
-    },
-    'handlers': {
-        'file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': '/var/log/django/boletos/error.log',
-            'formatter': 'verbose'
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
-    },
-}
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'formatters': {
+#         'verbose': {
+#             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+#             'style': '{',
+#         }
+#     },
+#     'handlers': {
+#         'file': {
+#             'level': 'ERROR',
+#             'class': 'logging.FileHandler',
+#             'filename': '/var/log/django/boletos/error.log',
+#             'formatter': 'verbose'
+#         },
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['file'],
+#             'level': 'ERROR',
+#             'propagate': True,
+#         },
+#     },
+# }
 
 WSGI_APPLICATION = 'boletos.wsgi.application'
 
@@ -171,12 +171,15 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-mx'
 
+# Zona horaria para mostrar fechas/horas en plantillas (|date) y en timezone.localtime().
 TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
+# Con True, Django guarda datetimes en UTC. En plantillas el filtro |date ya usa TIME_ZONE.
+# Si formateas en Python (.day, .month, strftime), usa siempre timezone.localtime(dt).
 USE_TZ = True
 
 

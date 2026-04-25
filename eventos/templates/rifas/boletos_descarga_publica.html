@@ -1,0 +1,47 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Boletos del cliente{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h3 class="mb-2"><i class="bi bi-ticket-perforated"></i> Boletos asignados</h3>
+            <p class="text-muted mb-3">
+                Rifa: <strong>{{ lote.rifa.nombre }}</strong><br>
+                Participante: <strong>{{ lote.participante.nombre_completo|default:"Sin nombre" }}</strong><br>
+                Rango generado: <strong>#{{ numero_min }} - #{{ numero_max }}</strong><br>
+                Total con QR: <strong>{{ boletos|length }}</strong> boleto(s)
+            </p>
+
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <a class="btn btn-primary" href="{{ pdf_url }}">
+                    <i class="bi bi-file-earmark-pdf"></i> Descargar todos en PDF
+                </a>
+            </div>
+
+            <hr>
+            <h5 class="mb-3">Boletos en storage/qr_codes</h5>
+            <div class="row g-3">
+                {% for boleto in boletos %}
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body text-center">
+                            <h6 class="mb-2">Boleto #{{ boleto.numero }}</h6>
+                            <a href="{{ boleto.qr.imagen_qr.url }}" target="_blank" rel="noopener">
+                                <img src="{{ boleto.qr.imagen_qr.url }}" alt="QR Boleto {{ boleto.numero }}" class="img-fluid rounded border mb-2">
+                            </a>
+                            <div class="d-grid gap-2">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ boleto.qr.imagen_qr.url }}" target="_blank" rel="noopener">
+                                    Ver imagen QR
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

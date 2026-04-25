@@ -47,6 +47,7 @@ urlpatterns = [
     ),
     path('admin/boletos/<int:boleto_id>/reservar/', views.reservar_boleto, name='reservar_boleto'),
     path('admin/reservar-boletos-masivo/', views.reservar_boletos_masivo, name='reservar_boletos_masivo'),
+    path('admin/generar-qr-masivo/', views.generar_qr_boletos_masivo, name='generar_qr_boletos_masivo'),
     path('admin/boletos/<int:boleto_id>/liberar/', views.liberar_boleto, name='liberar_boleto'),
     path(
         'admin/boletos/<int:boleto_id>/liberar-vendido/',
@@ -59,4 +60,6 @@ urlpatterns = [
 
     # Verificación pública de boleto (enlace del QR)
     path('boleto/<uuid:codigo_qr>/', views.verificar_boleto_publico, name='verificar_boleto_publico'),
+    path('boletos/descarga/<uuid:token>/', views.boletos_descarga_publica, name='boletos_descarga_publica'),
+    path('boletos/descarga/<uuid:token>/pdf/', views.boletos_descarga_pdf, name='boletos_descarga_pdf'),
 ]

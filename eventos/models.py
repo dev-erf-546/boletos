@@ -55,6 +55,13 @@ class Boleto(models.Model):
     fecha_venta = models.DateTimeField(null=True, blank=True)
     participante = models.ForeignKey('Participante', on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos')
     vendido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos_vendidos')
+    lote_masivo = models.ForeignKey(
+        'LoteBoletosMasivo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='boletos',
+    )
     
     class Meta:
         unique_together = ('rifa', 'numero')
@@ -152,6 +159,33 @@ class QRBoleto(models.Model):
             return hmac.compare_digest(qr.firmar(), firma)
         except cls.DoesNotExist:
             return False
+
+
+class LoteBoletosMasivo(models.Model):
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    rifa = models.ForeignKey(Rifa, on_delete=models.CASCADE, related_name='lotes_masivos')
+    participante = models.ForeignKey(
+        Participante,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lotes_masivos',
+    )
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lotes_masivos_creados',
+    )
+    total_boletos = models.PositiveIntegerField(default=0)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"Lote {self.token} ({self.total_boletos} boletos)"
 
 class Vendedor(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)

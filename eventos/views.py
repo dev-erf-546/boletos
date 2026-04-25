@@ -10,12 +10,17 @@ from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied
-from django.http import JsonResponse, Http404, FileResponse
+from django.http import JsonResponse, Http404, FileResponse, HttpResponse
 from django.db import transaction
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.http import require_POST
 from django.conf import settings
 import os
+import textwrap
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils.decorators import method_decorator
@@ -23,7 +28,15 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 
 from .mixins import StaffRequiredMixin
 
-from .models import Rifa, Boleto, Participante, ComprobantePago, QRBoleto, Notificacion
+from .models import (
+    Rifa,
+    Boleto,
+    Participante,
+    ComprobantePago,
+    QRBoleto,
+    Notificacion,
+    LoteBoletosMasivo,
+)
 from .forms import (
     RegistroParticipanteForm, 
     SubirComprobanteForm, 
@@ -39,6 +52,45 @@ from django.contrib.auth.models import User
 from .utils import generar_qr_boleto
 
 logger = logging.getLogger(__name__)
+
+MENSAJE_BOLETOS_DIGITALES_PENDIENTES = (
+    'No hay boletos generados aun, pide a tu administrador de ventas genere tus boletos digitales.'
+)
+
+
+def _pdf_truncar(texto, max_len=42):
+    if not texto:
+        return 'N/A'
+    s = str(texto)
+    return s if len(s) <= max_len else s[: max_len - 1] + '…'
+
+
+def _pdf_dibujar_boleto_en_celda(pdf, boleto, x0, y_top, cell_w, cell_h):
+    """
+    Dibuja solo la imagen del boleto/QR dentro de una celda.
+    y_top = borde superior de la celda (coord. ReportLab).
+    """
+    pad = 2 * mm
+
+    qr = getattr(boleto, 'qr', None)
+    if qr and qr.imagen_qr:
+        try:
+            img_w = max(1, cell_w - (2 * pad))
+            img_h = max(1, cell_h - (2 * pad))
+            img_x = x0 + pad
+            img_y = y_top - cell_h + pad
+            pdf.drawImage(
+                qr.imagen_qr.path,
+                img_x,
+                img_y,
+                width=img_w,
+                height=img_h,
+                preserveAspectRatio=True,
+                mask='auto',
+            )
+        except Exception as exc:
+            logger.warning('No se pudo incrustar QR en PDF para boleto %s: %s', boleto.numero, exc)
+
 
 class RifaListView(ListView):
     model = Rifa
@@ -350,14 +402,22 @@ def verificar_qr(request, codigo_qr):
             'rifa': {
                 'id': boleto.rifa.id,
                 'nombre': boleto.rifa.nombre,
-                'fecha_sorteo': boleto.rifa.fecha_sorteo.strftime("%Y-%m-%d %H:%M")
+                'fecha_sorteo': timezone.localtime(boleto.rifa.fecha_sorteo).strftime(
+                    '%Y-%m-%d %H:%M'
+                ),
             },
             'participante': {
                 'nombre': boleto.participante.nombre_completo,
                 'telefono': boleto.participante.telefono
             },
-            'fecha_compra': boleto.fecha_venta.strftime("%Y-%m-%d %H:%M"),
-            'qr_fecha_generacion': qr.fecha_generacion.strftime("%Y-%m-%d %H:%M")
+            'fecha_compra': (
+                timezone.localtime(boleto.fecha_venta).strftime('%Y-%m-%d %H:%M')
+                if boleto.fecha_venta
+                else ''
+            ),
+            'qr_fecha_generacion': timezone.localtime(qr.fecha_generacion).strftime(
+                '%Y-%m-%d %H:%M'
+            ),
         }
         
         return JsonResponse(data)
@@ -379,12 +439,13 @@ def verificar_boleto_publico(request, codigo_qr):
         boleto = qr.boleto
         rifa = boleto.rifa
         participante = boleto.participante
-        fecha = rifa.fecha_sorteo
+        # Con USE_TZ=True, en BD las fechas son UTC; para mostrar en México hay que pasar a TIME_ZONE.
+        fecha = timezone.localtime(rifa.fecha_sorteo)
         fecha_sorteo_texto = f"{fecha.day} de {MESES_ES.get(fecha.month, '')} de {fecha.year}"
 
         fecha_compra_texto = ''
         if boleto.fecha_venta:
-            fv = boleto.fecha_venta
+            fv = timezone.localtime(boleto.fecha_venta)
             fecha_compra_texto = f"{fv.day} de {MESES_ES.get(fv.month, '')} de {fv.year}"
 
         context = {
@@ -422,12 +483,7 @@ def logout_view(request):
     logout(request)
     return redirect('rifas:listado_rifas')
 
-import os
 import zipfile
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
-from io import BytesIO
-from eventos.models import Boleto
 
 def descargar_qrs_aprobados(request):
     # Verificar permisos
@@ -635,6 +691,7 @@ class AdminAsignarBoletosMasivoView(StaffRequiredMixin, View):
     """Asigna el mismo participante y comprobante (opcional) a un rango de números de boleto."""
 
     MAX_BOLETOS_POR_LOTE = 300
+    MAX_QR_SINCRONOS = 20
 
     def test_func(self):
         return self.request.user.is_staff
@@ -721,12 +778,22 @@ class AdminAsignarBoletosMasivoView(StaffRequiredMixin, View):
                 )
 
                 archivo = request.FILES.get('comprobante[archivo]')
+                fecha_venta = timezone.now()
+                lote_masivo = None
+                if len(boletos) >= 10:
+                    lote_masivo = LoteBoletosMasivo.objects.create(
+                        rifa=rifa,
+                        participante=participante,
+                        creado_por=request.user,
+                        total_boletos=len(boletos),
+                    )
 
                 for boleto in boletos:
                     boleto.participante = participante
                     boleto.estado = 'V'
-                    boleto.fecha_venta = timezone.now()
+                    boleto.fecha_venta = fecha_venta
                     boleto.vendido_por = request.user
+                    boleto.lote_masivo = lote_masivo
                     boleto.save()
 
                     if archivo:
@@ -736,26 +803,57 @@ class AdminAsignarBoletosMasivoView(StaffRequiredMixin, View):
                             imagen=archivo,
                             estado='A',
                             revisado_por=request.user,
-                            fecha_revision=timezone.now(),
+                            fecha_revision=fecha_venta,
                         )
                         comprobante.save()
 
-                    qr_instance, _created = QRBoleto.objects.get_or_create(
-                        boleto=boleto,
-                        defaults={'codigo': str(uuid.uuid4())},
-                    )
-                    if generar_qr_boleto(qr_instance):
-                        logger.info(f"Boleto masivo {boleto.numero} generado exitosamente")
-                    else:
-                        logger.error(f"Error al generar boleto masivo {boleto.numero}")
+                # Crear registros QR faltantes en lote (rápido y sin bloqueo prolongado).
+                boletos_ids = [b.id for b in boletos]
+                qr_existentes_ids = set(
+                    QRBoleto.objects.filter(boleto_id__in=boletos_ids).values_list('boleto_id', flat=True)
+                )
+                qr_por_crear = [
+                    QRBoleto(boleto_id=b_id, codigo=str(uuid.uuid4()))
+                    for b_id in boletos_ids
+                    if b_id not in qr_existentes_ids
+                ]
+                if qr_por_crear:
+                    QRBoleto.objects.bulk_create(qr_por_crear)
 
-            return JsonResponse(
-                {
-                    'success': True,
-                    'message': f'Se asignaron {len(boletos)} boletos correctamente',
-                    'asignados': len(boletos),
-                }
-            )
+                # Generar imagen QR solo en lotes pequeños para evitar timeouts HTTP.
+                qrs_generados = 0
+                if len(boletos) <= self.MAX_QR_SINCRONOS:
+                    for qr_instance in QRBoleto.objects.filter(boleto_id__in=boletos_ids).select_related('boleto'):
+                        if generar_qr_boleto(qr_instance):
+                            qrs_generados += 1
+
+            payload = {
+                'success': True,
+                'message': (
+                    f'Se asignaron {len(boletos)} boletos correctamente. '
+                    + (
+                        'Los QR se generaron en este momento.'
+                        if len(boletos) <= self.MAX_QR_SINCRONOS
+                        else 'La generación de imágenes QR se difirió para evitar timeout.'
+                    )
+                ),
+                'asignados': len(boletos),
+                'qrs_generados': qrs_generados,
+            }
+            if lote_masivo:
+                link_descarga = request.build_absolute_uri(
+                    reverse('rifas:boletos_descarga_publica', args=[lote_masivo.token])
+                )
+                payload.update(
+                    {
+                        'lote_token': str(lote_masivo.token),
+                        'link_descarga': link_descarga,
+                        'pdf_descarga': request.build_absolute_uri(
+                            reverse('rifas:boletos_descarga_pdf', args=[lote_masivo.token])
+                        ),
+                    }
+                )
+            return JsonResponse(payload)
 
         except Exception as e:
             logger.error(f"Error en asignación masiva: {str(e)}")
@@ -889,6 +987,101 @@ def reservar_boletos_masivo(request):
 
     except Exception as e:
         logger.error(f'Error en reserva masiva: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def generar_qr_boletos_masivo(request):
+    """
+    Genera QR (registro + imagen) para boletos ya vendidos dentro de un rango.
+    No modifica datos de venta, solo completa QR faltante o sin imagen.
+    """
+    MAX_BOLETOS = 300
+    try:
+        rifa_id = request.POST.get('rifa_id')
+        raw_inicio = request.POST.get('numero_inicio')
+        raw_fin = request.POST.get('numero_fin')
+
+        if not all([rifa_id, raw_inicio, raw_fin]):
+            return JsonResponse({'success': False, 'error': 'Datos incompletos'}, status=400)
+
+        try:
+            numero_inicio = int(raw_inicio)
+            numero_fin = int(raw_fin)
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'error': 'Rango de números inválido'}, status=400)
+
+        if numero_inicio > numero_fin:
+            numero_inicio, numero_fin = numero_fin, numero_inicio
+
+        cantidad = numero_fin - numero_inicio + 1
+        if cantidad > MAX_BOLETOS:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'error': f'El rango supera el máximo permitido ({MAX_BOLETOS} boletos por operación).',
+                },
+                status=400,
+            )
+
+        rifa = get_object_or_404(Rifa, pk=rifa_id)
+        boletos = list(
+            Boleto.objects.filter(
+                rifa_id=rifa.pk,
+                numero__gte=numero_inicio,
+                numero__lte=numero_fin,
+                estado='V',
+            ).order_by('numero')
+        )
+        if not boletos:
+            return JsonResponse(
+                {'success': False, 'error': 'No hay boletos vendidos en ese rango para generar QR.'},
+                status=400,
+            )
+
+        boletos_ids = [b.id for b in boletos]
+        qr_existentes_ids = set(
+            QRBoleto.objects.filter(boleto_id__in=boletos_ids).values_list('boleto_id', flat=True)
+        )
+        qr_por_crear = [
+            QRBoleto(boleto_id=b_id, codigo=str(uuid.uuid4()))
+            for b_id in boletos_ids
+            if b_id not in qr_existentes_ids
+        ]
+        if qr_por_crear:
+            QRBoleto.objects.bulk_create(qr_por_crear)
+
+        qrs = QRBoleto.objects.filter(boleto_id__in=boletos_ids).select_related('boleto')
+        generados_ok = 0
+        generados_error = 0
+        ya_existian = 0
+
+        for qr in qrs:
+            if qr.imagen_qr:
+                ya_existian += 1
+                continue
+            if generar_qr_boleto(qr):
+                generados_ok += 1
+            else:
+                generados_error += 1
+
+        return JsonResponse(
+            {
+                'success': True,
+                'message': (
+                    f'Proceso completado en rango #{numero_inicio}-#{numero_fin}. '
+                    f'Nuevos QR: {generados_ok}, ya existentes: {ya_existian}, errores: {generados_error}.'
+                ),
+                'total_vendidos_en_rango': len(boletos),
+                'qrs_generados': generados_ok,
+                'qrs_ya_existian': ya_existian,
+                'qrs_error': generados_error,
+            }
+        )
+    except Exception as e:
+        logger.error(f'Error en generación masiva de QR: {e}')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
@@ -1299,6 +1492,117 @@ def toggle_usuario_staff(request, pk):
     messages.success(request, f'Usuario "{usuario.username}" {estado} exitosamente.')
     
     return redirect('rifas:admin_usuarios_list')
+
+
+def boletos_descarga_publica(request, token):
+    """
+    Vista pública para compartir un lote de boletos vendido en asignación masiva.
+    """
+    lote = get_object_or_404(
+        LoteBoletosMasivo.objects.select_related('rifa', 'participante'),
+        token=token,
+    )
+    # Solo mostrar boletos del lote que ya tienen imagen QR generada en storage/qr_codes.
+    boletos = list(
+        lote.boletos.select_related('qr')
+        .filter(
+            estado='V',
+            qr__imagen_qr__isnull=False,
+            qr__imagen_qr__gt='',
+            qr__imagen_qr__startswith='qr_codes/',
+        )
+        .order_by('numero')
+    )
+    if not boletos:
+        return render(
+            request,
+            'rifas/boletos_descarga_pendiente.html',
+            {'lote': lote, 'mensaje': MENSAJE_BOLETOS_DIGITALES_PENDIENTES},
+        )
+
+    numero_min = boletos[0].numero
+    numero_max = boletos[-1].numero
+
+    return render(
+        request,
+        'rifas/boletos_descarga_publica.html',
+        {
+            'lote': lote,
+            'boletos': boletos,
+            'numero_min': numero_min,
+            'numero_max': numero_max,
+            'pdf_url': reverse('rifas:boletos_descarga_pdf', args=[lote.token]),
+        },
+    )
+
+
+def boletos_descarga_pdf(request, token):
+    """
+    Descarga en un único PDF todos los boletos de un lote masivo.
+    """
+    lote = get_object_or_404(
+        LoteBoletosMasivo.objects.select_related('rifa', 'participante'),
+        token=token,
+    )
+    boletos = list(
+        lote.boletos.select_related('qr')
+        .filter(
+            estado='V',
+            qr__imagen_qr__isnull=False,
+            qr__imagen_qr__gt='',
+            qr__imagen_qr__startswith='qr_codes/',
+        )
+        .order_by('numero')
+    )
+    if not boletos:
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        page_w, page_h = A4
+        pdf.setFont('Helvetica-Bold', 14)
+        pdf.drawString(20 * mm, page_h - 30 * mm, 'Boletos digitales')
+        pdf.setFont('Helvetica', 11)
+        y = page_h - 48 * mm
+        for line in textwrap.wrap(MENSAJE_BOLETOS_DIGITALES_PENDIENTES, width=72):
+            pdf.drawString(20 * mm, y, line)
+            y -= 6 * mm
+        pdf.showPage()
+        pdf.save()
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="lote_boletos_{lote.token}.pdf"'
+        return response
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    page_w, page_h = A4
+
+    # 4 boletos por página en cuadrícula 2×2 (solo imagen, sin texto)
+    margin_x = 8 * mm
+    margin_y = 8 * mm
+    gap_h = 4 * mm
+    gap_v = 4 * mm
+    usable_w = page_w - 2 * margin_x
+    usable_h = page_h - 2 * margin_y
+    cell_w = (usable_w - gap_h) / 2
+    cell_h = (usable_h - gap_v) / 2
+
+    for i in range(0, len(boletos), 4):
+        chunk = boletos[i : i + 4]
+        for idx, boleto in enumerate(chunk):
+            col = idx % 2
+            row = idx // 2
+            x0 = margin_x + col * (cell_w + gap_h)
+            y_top = page_h - margin_y - row * (cell_h + gap_v)
+            _pdf_dibujar_boleto_en_celda(pdf, boleto, x0, y_top, cell_w, cell_h)
+
+        pdf.showPage()
+
+    pdf.save()
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="lote_boletos_{lote.token}.pdf"'
+    return response
 
 # Vista protegida para servir archivos de storage
 @login_required

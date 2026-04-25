@@ -5,6 +5,7 @@ import os
 import uuid
 import logging
 from django.conf import settings
+from django.utils import timezone
 from PIL import Image, ImageDraw, ImageFont
 
 from .models import QRBoleto
@@ -164,7 +165,7 @@ def generar_qr_boleto(qr_instance):
         else:
             fecha_x = left_pad
 
-        fecha_sorteo = rifa.fecha_sorteo
+        fecha_sorteo = timezone.localtime(rifa.fecha_sorteo)
         fecha_text = f"{fecha_sorteo.day} de {MESES_ES.get(fecha_sorteo.month, '')} de {fecha_sorteo.year}"
         draw.text((fecha_x, info_y), fecha_text, font=font_value, fill=color_text)
 

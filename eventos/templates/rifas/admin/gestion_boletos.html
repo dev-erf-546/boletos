@@ -203,6 +203,9 @@
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0"><i class="bi bi-ticket-perforated"></i> Listado de Boletos</h5>
         <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+            <button type="button" class="btn btn-info btn-sm text-white" id="btnQrMasivo" title="Generar QR para un rango vendido">
+                <i class="bi bi-qr-code"></i> QR masivo
+            </button>
             <button type="button" class="btn btn-warning btn-sm text-dark" id="btnReservaMasiva" title="Reservar un rango de boletos disponibles">
                 <i class="bi bi-clock-history"></i> Reserva masiva
             </button>
@@ -391,6 +394,42 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="confirmarAsignacion">
                     <i class="bi bi-check-circle"></i> Asignar Boleto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal QR masivo (solo genera QR para boletos ya vendidos) -->
+<div class="modal fade" id="qrMasivoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-qr-code"></i> Generar QR masivo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Genera QR para boletos <strong>ya vendidos</strong> en el rango indicado. No cambia estados ni datos de venta.
+                </p>
+                <form id="qrMasivoForm">
+                    <input type="hidden" id="qrMasivoRifaId" value="{{ rifa.pk }}">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label" for="id_qr_desde">Desde (número)</label>
+                            <input type="number" class="form-control" id="id_qr_desde" min="1" required placeholder="400">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="id_qr_hasta">Hasta (número)</label>
+                            <input type="number" class="form-control" id="id_qr_hasta" min="1" required placeholder="449">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info text-white" id="confirmarQrMasivo">
+                    <i class="bi bi-check-circle"></i> Generar QR
                 </button>
             </div>
         </div>
@@ -672,6 +711,70 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Modal reserva masiva
+    const qrMasivoModalEl = document.getElementById('qrMasivoModal');
+    const qrMasivoModal = qrMasivoModalEl ? new bootstrap.Modal(qrMasivoModalEl) : null;
+    const btnQrMasivo = document.getElementById('btnQrMasivo');
+    if (btnQrMasivo && qrMasivoModal) {
+        btnQrMasivo.addEventListener('click', function() {
+            qrMasivoModal.show();
+        });
+    }
+
+    const confirmarQrMasivoBtn = document.getElementById('confirmarQrMasivo');
+    if (confirmarQrMasivoBtn) {
+        confirmarQrMasivoBtn.addEventListener('click', async function() {
+            const rifaIdEl = document.getElementById('qrMasivoRifaId');
+            const desde = document.getElementById('id_qr_desde');
+            const hasta = document.getElementById('id_qr_hasta');
+            if (!rifaIdEl || !desde || !hasta) return;
+
+            const n0 = parseInt(desde.value, 10);
+            const n1 = parseInt(hasta.value, 10);
+            if (isNaN(n0) || isNaN(n1) || n0 < 1 || n1 < 1) {
+                alert('Indica un rango válido de números de boleto.');
+                return;
+            }
+
+            let a = n0;
+            let b = n1;
+            if (a > b) { const t = a; a = b; b = t; }
+
+            if (!confirm('¿Generar QR para boletos vendidos del #' + a + ' al #' + b + '?')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('rifa_id', rifaIdEl.value);
+            formData.append('numero_inicio', String(a));
+            formData.append('numero_fin', String(b));
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            confirmarQrMasivoBtn.disabled = true;
+            confirmarQrMasivoBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+            try {
+                const response = await fetch('{% url "rifas:generar_qr_boletos_masivo" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-CSRFToken': csrfToken}
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    alert(data.message || 'QR generados correctamente');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo completar la generación de QR'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                confirmarQrMasivoBtn.disabled = false;
+                confirmarQrMasivoBtn.innerHTML = '<i class="bi bi-check-circle"></i> Generar QR';
+            }
+        });
+    }
+
+    // Modal reserva masiva
     const reservarMasivoModalEl = document.getElementById('reservarMasivoModal');
     const reservarMasivoModal = reservarMasivoModalEl ? new bootstrap.Modal(reservarMasivoModalEl) : null;
     const btnReservaMasiva = document.getElementById('btnReservaMasiva');
@@ -816,6 +919,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await response.json().catch(() => ({}));
                 if (response.ok && data.success) {
+                    if (data.link_descarga) {
+                        const abrir = confirm(
+                            (data.message || 'Asignación completada') +
+                            '\n\nSe generó el enlace único para el cliente:\n' +
+                            data.link_descarga +
+                            '\n\n¿Deseas abrirlo ahora en una nueva pestaña?'
+                        );
+                        if (abrir) {
+                            window.open(data.link_descarga, '_blank');
+                        }
+                    }
                     window.location.reload();
                 } else {
                     alert('Error: ' + (data.error || 'No se pudo completar la asignación masiva'));
