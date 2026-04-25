@@ -691,7 +691,6 @@ class AdminAsignarBoletosMasivoView(StaffRequiredMixin, View):
     """Asigna el mismo participante y comprobante (opcional) a un rango de números de boleto."""
 
     MAX_BOLETOS_POR_LOTE = 300
-    MAX_QR_SINCRONOS = 20
 
     def test_func(self):
         return self.request.user.is_staff
@@ -820,22 +819,15 @@ class AdminAsignarBoletosMasivoView(StaffRequiredMixin, View):
                 if qr_por_crear:
                     QRBoleto.objects.bulk_create(qr_por_crear)
 
-                # Generar imagen QR solo en lotes pequeños para evitar timeouts HTTP.
+                # Importante: aquí NO se generan imágenes QR.
+                # Solo se deja el registro QR (UUID) para generarlo después con "QR masivo".
                 qrs_generados = 0
-                if len(boletos) <= self.MAX_QR_SINCRONOS:
-                    for qr_instance in QRBoleto.objects.filter(boleto_id__in=boletos_ids).select_related('boleto'):
-                        if generar_qr_boleto(qr_instance):
-                            qrs_generados += 1
 
             payload = {
                 'success': True,
                 'message': (
                     f'Se asignaron {len(boletos)} boletos correctamente. '
-                    + (
-                        'Los QR se generaron en este momento.'
-                        if len(boletos) <= self.MAX_QR_SINCRONOS
-                        else 'La generación de imágenes QR se difirió para evitar timeout.'
-                    )
+                    + 'Aún no se generaron imágenes QR; puedes generarlas desde "QR masivo".'
                 ),
                 'asignados': len(boletos),
                 'qrs_generados': qrs_generados,
@@ -1082,6 +1074,135 @@ def generar_qr_boletos_masivo(request):
         )
     except Exception as e:
         logger.error(f'Error en generación masiva de QR: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def editar_boleto_vendido(request, boleto_id):
+    """
+    Permite editar datos del participante de un boleto vendido
+    solo si aún NO tiene imagen QR generada.
+    """
+    import re
+
+    try:
+        with transaction.atomic():
+            boleto = get_object_or_404(
+                Boleto.objects.select_for_update().select_related('rifa'),
+                pk=boleto_id,
+                estado='V',
+            )
+
+            qr = getattr(boleto, 'qr', None)
+            if qr and qr.imagen_qr:
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'error': 'No se puede editar: este boleto ya tiene QR generado.',
+                    },
+                    status=400,
+                )
+
+            nombre = (request.POST.get('participante[nombre]') or '').strip()
+            direccion = (request.POST.get('participante[direccion]') or '').strip()
+            telefono_raw = (request.POST.get('participante[telefono]') or '').strip()
+            email = (request.POST.get('participante[email]') or '').strip()
+
+            if not nombre or not telefono_raw:
+                return JsonResponse(
+                    {'success': False, 'error': 'Nombre y teléfono son obligatorios.'},
+                    status=400,
+                )
+
+            telefono = re.sub(r'\D', '', telefono_raw)
+            if len(telefono) != 10:
+                return JsonResponse(
+                    {'success': False, 'error': 'El teléfono debe tener exactamente 10 dígitos.'},
+                    status=400,
+                )
+
+            # Edición individual: crear/usar un participante propio para este boleto.
+            # Así evitamos modificar en cascada otros boletos que compartan participante.
+            participante_actual = boleto.participante
+            if participante_actual and participante_actual.boletos.exclude(pk=boleto.pk).exists():
+                participante = Participante.objects.create(
+                    nombre_completo=nombre,
+                    direccion=direccion,
+                    telefono=telefono,
+                    email=email or None,
+                )
+            else:
+                participante = participante_actual or Participante()
+                participante.nombre_completo = nombre
+                participante.direccion = direccion
+                participante.telefono = telefono
+                participante.email = email or None
+                participante.save()
+
+            boleto.participante = participante
+            boleto.save(update_fields=['participante'])
+
+        return JsonResponse(
+            {
+                'success': True,
+                'message': f'Boleto #{boleto.numero} actualizado correctamente.',
+            }
+        )
+    except Http404:
+        return JsonResponse(
+            {'success': False, 'error': 'Boleto no encontrado o no está vendido.'},
+            status=404,
+        )
+    except Exception as e:
+        logger.exception('Error al editar boleto vendido')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def generar_qr_boleto_vendido(request, boleto_id):
+    """
+    Genera el QR (imagen) de un boleto vendido de forma individual.
+    """
+    try:
+        boleto = get_object_or_404(Boleto.objects.select_related('rifa'), pk=boleto_id, estado='V')
+
+        qr, _created = QRBoleto.objects.get_or_create(
+            boleto=boleto,
+            defaults={'codigo': str(uuid.uuid4())},
+        )
+
+        if qr.imagen_qr:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'error': f'El boleto #{boleto.numero} ya tiene QR generado.',
+                },
+                status=400,
+            )
+
+        if generar_qr_boleto(qr):
+            return JsonResponse(
+                {
+                    'success': True,
+                    'message': f'QR generado correctamente para boleto #{boleto.numero}.',
+                }
+            )
+        return JsonResponse(
+            {'success': False, 'error': 'No se pudo generar el QR para este boleto.'},
+            status=500,
+        )
+
+    except Http404:
+        return JsonResponse(
+            {'success': False, 'error': 'Boleto no encontrado o no está vendido.'},
+            status=404,
+        )
+    except Exception as e:
+        logger.exception('Error al generar QR individual')
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 

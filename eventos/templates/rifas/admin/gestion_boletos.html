@@ -306,6 +306,20 @@
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 {% endif %}
+
+                                {% if boleto.estado == 'V' and not boleto.qr.imagen_qr %}
+                                    <button type="button" class="btn btn-outline-primary btn-action editar-vendido-btn"
+                                        data-editar-url="{% url 'rifas:editar_boleto_vendido' boleto.id %}"
+                                        data-generar-qr-url="{% url 'rifas:generar_qr_boleto_vendido' boleto.id %}"
+                                        data-boleto-numero="{{ boleto.numero }}"
+                                        data-nombre="{{ boleto.participante.nombre_completo|default:'' }}"
+                                        data-direccion="{{ boleto.participante.direccion|default:'' }}"
+                                        data-telefono="{{ boleto.participante.telefono|default:'' }}"
+                                        data-email="{{ boleto.participante.email|default:'' }}"
+                                        title="Editar venta (solo sin QR generado)">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                {% endif %}
                                 
                                 {% if boleto.estado == 'V' and boleto.qr and boleto.qr.imagen_qr %}
                                     <button class="btn btn-info btn-action ver-qr-btn" 
@@ -394,6 +408,53 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="confirmarAsignacion">
                     <i class="bi bi-check-circle"></i> Asignar Boleto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar boleto vendido (solo si no hay QR generado) -->
+<div class="modal fade" id="editarVendidoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Editar boleto vendido</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">
+                    Solo puedes editar mientras no exista imagen QR generada para este boleto.
+                </p>
+                <form id="editarVendidoForm">
+                    <input type="hidden" id="editarVendidoUrl">
+                    <input type="hidden" id="editarVendidoQrUrl">
+                    <input type="hidden" id="editarVendidoNumero">
+                    <div class="mb-3">
+                        <label for="id_edit_nombre" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control" id="id_edit_nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_edit_direccion" class="form-label">Dirección</label>
+                        <input type="text" class="form-control" id="id_edit_direccion">
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_edit_telefono" class="form-label">Teléfono (10 dígitos)</label>
+                        <input type="tel" class="form-control" id="id_edit_telefono" maxlength="10" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_edit_email" class="form-label">Email (opcional)</label>
+                        <input type="email" class="form-control" id="id_edit_email">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-outline-info" id="generarQrDesdeEditar">
+                    <i class="bi bi-qr-code"></i> Generar QR
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmarEditarVendido">
+                    <i class="bi bi-check-circle"></i> Guardar cambios
                 </button>
             </div>
         </div>
@@ -706,6 +767,127 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 confirmarBtn.disabled = false;
                 confirmarBtn.innerHTML = '<i class="bi bi-check-circle"></i> Asignar Boleto';
+            }
+        });
+    }
+
+    // Editar boleto vendido (solo sin QR generado)
+    const editarVendidoModalEl = document.getElementById('editarVendidoModal');
+    const editarVendidoModal = editarVendidoModalEl ? new bootstrap.Modal(editarVendidoModalEl) : null;
+    const editarVendidoUrlInput = document.getElementById('editarVendidoUrl');
+    const editarVendidoQrUrlInput = document.getElementById('editarVendidoQrUrl');
+    const editarVendidoNumeroInput = document.getElementById('editarVendidoNumero');
+    const editNombre = document.getElementById('id_edit_nombre');
+    const editDireccion = document.getElementById('id_edit_direccion');
+    const editTelefono = document.getElementById('id_edit_telefono');
+    const editEmail = document.getElementById('id_edit_email');
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.editar-vendido-btn');
+        if (!btn || !editarVendidoModal) return;
+
+        if (editarVendidoUrlInput) editarVendidoUrlInput.value = btn.dataset.editarUrl || '';
+        if (editarVendidoQrUrlInput) editarVendidoQrUrlInput.value = btn.dataset.generarQrUrl || '';
+        if (editarVendidoNumeroInput) editarVendidoNumeroInput.value = btn.dataset.boletoNumero || '';
+        if (editNombre) editNombre.value = btn.dataset.nombre || '';
+        if (editDireccion) editDireccion.value = btn.dataset.direccion || '';
+        if (editTelefono) editTelefono.value = (btn.dataset.telefono || '').replace(/\D/g, '').slice(0, 10);
+        if (editEmail) editEmail.value = btn.dataset.email || '';
+        editarVendidoModal.show();
+    });
+
+    if (editTelefono) {
+        editTelefono.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 10) value = value.substring(0, 10);
+            e.target.value = value;
+        });
+    }
+
+    const confirmarEditarVendidoBtn = document.getElementById('confirmarEditarVendido');
+    if (confirmarEditarVendidoBtn) {
+        confirmarEditarVendidoBtn.addEventListener('click', async function() {
+            const targetUrl = editarVendidoUrlInput ? editarVendidoUrlInput.value : '';
+            if (!targetUrl) {
+                alert('No se encontró la URL de edición.');
+                return;
+            }
+            if (!editNombre || !editTelefono) return;
+
+            const nombre = editNombre.value.trim();
+            const telefono = editTelefono.value.replace(/\D/g, '');
+            if (!nombre) {
+                alert('El nombre es obligatorio.');
+                editNombre.focus();
+                return;
+            }
+            if (telefono.length !== 10) {
+                alert('El teléfono debe tener exactamente 10 dígitos.');
+                editTelefono.focus();
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('participante[nombre]', nombre);
+            formData.append('participante[direccion]', editDireccion ? editDireccion.value.trim() : '');
+            formData.append('participante[telefono]', telefono);
+            formData.append('participante[email]', editEmail ? editEmail.value.trim() : '');
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            confirmarEditarVendidoBtn.disabled = true;
+            confirmarEditarVendidoBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+            try {
+                const response = await fetch(targetUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-CSRFToken': csrfToken}
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo actualizar el boleto vendido'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                confirmarEditarVendidoBtn.disabled = false;
+                confirmarEditarVendidoBtn.innerHTML = '<i class="bi bi-check-circle"></i> Guardar cambios';
+            }
+        });
+    }
+
+    const generarQrDesdeEditarBtn = document.getElementById('generarQrDesdeEditar');
+    if (generarQrDesdeEditarBtn) {
+        generarQrDesdeEditarBtn.addEventListener('click', async function() {
+            const targetUrl = editarVendidoQrUrlInput ? editarVendidoQrUrlInput.value : '';
+            const numero = editarVendidoNumeroInput ? editarVendidoNumeroInput.value : '';
+            if (!targetUrl) {
+                alert('No se encontró la URL para generar QR.');
+                return;
+            }
+            if (!confirm('¿Generar QR para el boleto #' + numero + '?')) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            generarQrDesdeEditarBtn.disabled = true;
+            generarQrDesdeEditarBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
+            try {
+                const response = await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': csrfToken}
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    alert(data.message || 'QR generado correctamente');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo generar el QR'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                generarQrDesdeEditarBtn.disabled = false;
+                generarQrDesdeEditarBtn.innerHTML = '<i class="bi bi-qr-code"></i> Generar QR';
             }
         });
     }

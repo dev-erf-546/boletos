@@ -48,6 +48,8 @@ urlpatterns = [
     path('admin/boletos/<int:boleto_id>/reservar/', views.reservar_boleto, name='reservar_boleto'),
     path('admin/reservar-boletos-masivo/', views.reservar_boletos_masivo, name='reservar_boletos_masivo'),
     path('admin/generar-qr-masivo/', views.generar_qr_boletos_masivo, name='generar_qr_boletos_masivo'),
+    path('admin/boletos/<int:boleto_id>/editar-vendido/', views.editar_boleto_vendido, name='editar_boleto_vendido'),
+    path('admin/boletos/<int:boleto_id>/generar-qr/', views.generar_qr_boleto_vendido, name='generar_qr_boleto_vendido'),
     path('admin/boletos/<int:boleto_id>/liberar/', views.liberar_boleto, name='liberar_boleto'),
     path(
         'admin/boletos/<int:boleto_id>/liberar-vendido/',
