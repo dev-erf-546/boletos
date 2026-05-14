@@ -255,8 +255,8 @@
                                 <strong>{{ boleto.participante.nombre_completo }}</strong><br>
                                 <small class="text-muted">
                                     <i class="bi bi-telephone"></i> {{ boleto.participante.telefono }}
-                                    {% if boleto.participante.email %}
-                                    <br><i class="bi bi-envelope"></i> {{ boleto.participante.email }}
+                                    {% if boleto.participante.direccion %}
+                                    <br><i class="bi bi-envelope"></i> {{ boleto.participante.direccion }}
                                     {% endif %}
                                 </small>
                             {% else %}
