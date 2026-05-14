@@ -733,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData();
             formData.append('boleto_id', currentBoletoId);
             
-            ['nombre', 'email', 'telefono'].forEach(field => {
+            ['nombre', 'direccion', 'email', 'telefono'].forEach(field => {
                 const input = document.getElementById(`id_${field}`);
                 if (input) formData.append(`participante[${field}]`, input.value);
             });
