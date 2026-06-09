@@ -295,17 +295,23 @@ class MostrarQRView(View):
 # Vistas de Administración
 
 class ComprobantesPendientesView(StaffRequiredMixin, ListView):
-    model = ComprobantePago
+    model = Boleto
     template_name = 'rifas/admin/comprobantes_pendientes.html'
-    context_object_name = 'comprobantes'
+    context_object_name = 'boletos'
 
     def get_queryset(self):
-        return ComprobantePago.objects.filter(
-            Q(boleto__estado='V') | Q(estado='P')
+        boletos = Boleto.objects.filter(
+            estado__in=['V', 'R']
         ).select_related(
-            'boleto',
-            'boleto__vendido_por',
-        ).order_by('boleto__numero')
+            'vendido_por',
+            'rifa',
+        ).order_by('rifa_id', 'numero')
+
+        rifa_id = self.request.GET.get('rifa')
+        if rifa_id:
+            boletos = boletos.filter(rifa_id=rifa_id)
+
+        return boletos
 
 
 class ValidarComprobanteView(StaffRequiredMixin, UpdateView):

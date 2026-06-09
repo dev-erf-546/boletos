@@ -12,11 +12,11 @@
 
 <div class="card">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Boletos Vendidos y Comprobantes</h5>
-        <span class="badge bg-light text-dark">{{ comprobantes|length }} registro(s)</span>
+        <h5 class="mb-0">Boletos Vendidos y Reservados</h5>
+        <span class="badge bg-light text-dark">{{ boletos|length }} registro(s)</span>
     </div>
     <div class="card-body p-0">
-        {% if comprobantes %}
+        {% if boletos %}
         <div class="table-responsive">
             <table class="table table-hover table-bordered mb-0">
                 <thead class="table-light">
@@ -28,23 +28,33 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for comp in comprobantes %}
-                    <tr>
-                        <td><strong>#{{ comp.boleto.numero }}</strong></td>
+                    {% for boleto in boletos %}
+                    <tr class="{% if boleto.estado == 'V' %}table-success{% elif boleto.estado == 'R' %}table-warning{% endif %}">
+                        <td><strong>#{{ boleto.numero }}</strong></td>
                         <td>
-                            {% if comp.boleto.vendido_por %}
-                                {{ comp.boleto.vendido_por.get_full_name|default:comp.boleto.vendido_por.username }}
+                            {% if boleto.vendido_por %}
+                                {{ boleto.vendido_por.get_full_name|default:boleto.vendido_por.username }}
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
-                            <span class="badge {% if comp.estado == 'A' %}bg-success{% elif comp.estado == 'R' %}bg-danger{% else %}bg-warning{% endif %}">
-                                {{ comp.get_estado_display }}
-                            </span>
+                            {% if boleto.estado == 'V' %}
+                                <span class="badge bg-danger">{{ boleto.get_estado_display }}</span>
+                            {% elif boleto.estado == 'R' %}
+                                <span class="badge bg-warning text-dark">{{ boleto.get_estado_display }}</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <small>{{ comp.fecha_subida|date:"d/m/Y H:i" }}</small>
+                            <small>
+                                {% if boleto.estado == 'V' and boleto.fecha_venta %}
+                                    {{ boleto.fecha_venta|date:"d/m/Y H:i" }}
+                                {% elif boleto.estado == 'R' and boleto.fecha_reserva %}
+                                    {{ boleto.fecha_reserva|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </small>
                         </td>
                     </tr>
                     {% endfor %}
@@ -53,8 +63,8 @@
         </div>
         {% else %}
         <div class="text-center py-5">
-            <i class="bi bi-check-circle" style="font-size: 3rem; color: #28a745;"></i>
-            <p class="text-muted mt-3 mb-0">No hay comprobantes pendientes de revisión</p>
+            <i class="bi bi-ticket-perforated" style="font-size: 3rem; color: #6c757d;"></i>
+            <p class="text-muted mt-3 mb-0">No hay boletos vendidos ni reservados</p>
         </div>
         {% endif %}
     </div>
