@@ -305,7 +305,7 @@ class ComprobantesPendientesView(StaffRequiredMixin, ListView):
         ).select_related(
             'boleto',
             'boleto__vendido_por',
-        ).order_by('-fecha_subida')
+        ).order_by('boleto__numero')
 
 
 class ValidarComprobanteView(StaffRequiredMixin, UpdateView):
