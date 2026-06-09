@@ -296,9 +296,8 @@ class MostrarQRView(View):
 
 class ComprobantesPendientesView(StaffRequiredMixin, ListView):
     model = ComprobantePago
-    template_name = 'rifas/admin/comprobantes_pendientes.html'  # Puedes renombrar este template
+    template_name = 'rifas/admin/comprobantes_pendientes.html'
     context_object_name = 'comprobantes'
-    paginate_by = 20  # Opcional: añade paginación
 
     def get_queryset(self):
         return ComprobantePago.objects.filter(
