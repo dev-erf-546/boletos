@@ -301,14 +301,12 @@ class ComprobantesPendientesView(StaffRequiredMixin, ListView):
     paginate_by = 20  # Opcional: añade paginación
 
     def get_queryset(self):
-        # Filtra comprobantes de boletos VENDIDOS (estado 'V')
         return ComprobantePago.objects.filter(
-            Q(boleto__estado='V') | Q(estado='P')  # Boletos vendidos O comprobantes pendientes
+            Q(boleto__estado='V') | Q(estado='P')
         ).select_related(
             'boleto',
-            'boleto__participante',
-            'boleto__rifa'  # Nuevo: para mostrar info de la rifa
-        ).order_by('-fecha_subida')  # Ordena por fecha descendente
+            'boleto__vendido_por',
+        ).order_by('-fecha_subida')
 
 
 class ValidarComprobanteView(StaffRequiredMixin, UpdateView):

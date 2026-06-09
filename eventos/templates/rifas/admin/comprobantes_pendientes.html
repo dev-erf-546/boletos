@@ -21,48 +21,30 @@
             <table class="table table-hover table-bordered mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Boleto</th>
-                        <th class="d-none d-md-table-cell">Rifa</th>
-                        <th>Participante</th>
-                        <th class="d-none d-sm-table-cell">Teléfono</th>
-                        <th>Estado</th>
-                        <th class="d-none d-lg-table-cell">Fecha</th>
-                        <th>Acciones</th>
+                        <th># Boleto</th>
+                        <th>Usuario que vendió</th>
+                        <th>Estatus</th>
+                        <th>Fecha</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for comp in comprobantes %}
                     <tr>
+                        <td><strong>#{{ comp.boleto.numero }}</strong></td>
                         <td>
-                            <strong>#{{ comp.boleto.numero }}</strong>
-                            <div class="d-md-none">
-                                <small class="text-muted">{{ comp.boleto.rifa.nombre|truncatechars:15 }}</small>
-                            </div>
+                            {% if comp.boleto.vendido_por %}
+                                {{ comp.boleto.vendido_por.get_full_name|default:comp.boleto.vendido_por.username }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
                         </td>
-                        <td class="d-none d-md-table-cell">{{ comp.boleto.rifa.nombre|truncatechars:20 }}</td>
-                        <td>
-                            {{ comp.boleto.participante.nombre_completo }}
-                            <div class="d-sm-none">
-                                <small class="text-muted">{{ comp.boleto.participante.telefono }}</small>
-                            </div>
-                        </td>
-                        <td class="d-none d-sm-table-cell">{{ comp.boleto.participante.telefono }}</td>
                         <td>
                             <span class="badge {% if comp.estado == 'A' %}bg-success{% elif comp.estado == 'R' %}bg-danger{% else %}bg-warning{% endif %}">
                                 {{ comp.get_estado_display }}
                             </span>
                         </td>
-                        <td class="d-none d-lg-table-cell">
-                            <small>{{ comp.fecha_subida|date:"d/m/Y H:i" }}</small>
-                        </td>
                         <td>
-                            {% if comp.estado == 'P' %}
-                            <a href="{% url 'rifas:validar_comprobante' comp.id %}" class="btn btn-sm btn-info">
-                                <i class="bi bi-check-circle"></i><span class="d-none d-md-inline"> Validar</span>
-                            </a>
-                            {% else %}
-                            <span class="badge bg-secondary">Validado</span>
-                            {% endif %}
+                            <small>{{ comp.fecha_subida|date:"d/m/Y H:i" }}</small>
                         </td>
                     </tr>
                     {% endfor %}
