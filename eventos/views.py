@@ -311,7 +311,24 @@ class ComprobantesPendientesView(StaffRequiredMixin, ListView):
         if rifa_id:
             boletos = boletos.filter(rifa_id=rifa_id)
 
+        inicio = self.request.GET.get('inicio')
+        fin = self.request.GET.get('fin')
+        if inicio:
+            boletos = boletos.filter(numero__gte=inicio)
+        if fin:
+            boletos = boletos.filter(numero__lte=fin)
+
         return boletos
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'current_rifa': self.request.GET.get('rifa', ''),
+            'current_inicio': self.request.GET.get('inicio', ''),
+            'current_fin': self.request.GET.get('fin', ''),
+            'rifas': Rifa.objects.order_by('-fecha_creacion'),
+        })
+        return context
 
 
 class ValidarComprobanteView(StaffRequiredMixin, UpdateView):
