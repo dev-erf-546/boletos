@@ -55,6 +55,7 @@ class Boleto(models.Model):
     fecha_venta = models.DateTimeField(null=True, blank=True)
     participante = models.ForeignKey('Participante', on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos')
     vendido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos_vendidos')
+    reservado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='boletos_reservados')
     lote_masivo = models.ForeignKey(
         'LoteBoletosMasivo',
         on_delete=models.SET_NULL,
@@ -80,6 +81,7 @@ class Boleto(models.Model):
         self.estado = 'D'
         self.participante = None
         self.fecha_reserva = None
+        self.reservado_por = None
         self.save()
     
     @property

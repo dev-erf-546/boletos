@@ -241,6 +241,12 @@
                                 {% if boleto.fecha_reserva %}
                                 <br><small class="text-muted">{{ boleto.fecha_reserva|date:"d/m/Y H:i" }}</small>
                                 {% endif %}
+                                {% if boleto.reservado_por %}
+                                <br><small class="text-muted">
+                                    <i class="bi bi-person"></i>
+                                    {{ boleto.reservado_por.get_full_name|default:boleto.reservado_por.username }}
+                                </small>
+                                {% endif %}
                             {% elif boleto.estado == 'V' %}
                                 <span class="badge bg-danger badge-estado">Vendido</span>
                                 {% if boleto.fecha_venta %}

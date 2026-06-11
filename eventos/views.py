@@ -549,7 +549,7 @@ class AdminGestionBoletosView(StaffRequiredMixin, ListView):
         
         # Base query optimizada
         boletos = Boleto.objects.filter(rifa_id=rifa_id).select_related(
-            'participante', 'rifa'
+            'participante', 'rifa', 'reservado_por'
         ).prefetch_related('qr')
         
         # Filtros
@@ -889,6 +889,7 @@ def reservar_boleto(request, boleto_id):
         # Reservar el boleto
         boleto.estado = 'R'
         boleto.fecha_reserva = timezone.now()
+        boleto.reservado_por = request.user
         boleto.save()
         
         return JsonResponse({
@@ -987,6 +988,7 @@ def reservar_boletos_masivo(request):
             for boleto in boletos:
                 boleto.estado = 'R'
                 boleto.fecha_reserva = ahora
+                boleto.reservado_por = request.user
                 boleto.save()
 
         return JsonResponse(
@@ -1237,6 +1239,7 @@ def liberar_boleto(request, boleto_id):
         boleto.estado = 'D'
         boleto.participante = None
         boleto.fecha_reserva = None
+        boleto.reservado_por = None
         boleto.save()
         
         return JsonResponse({
