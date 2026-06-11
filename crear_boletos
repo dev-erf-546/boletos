@@ -1,11 +1,4 @@
-from rifas.models import Boleto, Rifa
-
-rifa = Rifa.objects.get(id=1)
-
-
-for numero in range(851, 901):
-    Boleto.objects.create(
-        rifa=rifa,
-        numero=numero,
-        estado='D'
-    )
+# Obsoleto: usar scripts/agregar_boletos.py
+#
+# python manage.py shell
+# >>> exec(open('scripts/agregar_boletos.py', encoding='utf-8').read())
