@@ -57,6 +57,17 @@ urlpatterns = [
         name='liberar_boleto_vendido',
     ),
     
+    path(
+        'admin-panel/rifas/<int:rifa_id>/talonarios/pdf/',
+        views.imprimir_talonarios_pdf,
+        name='imprimir_talonarios_pdf',
+    ),
+    path(
+        'admin-panel/boletos/<int:boleto_id>/talonario/pdf/',
+        views.imprimir_talonario_boleto,
+        name='imprimir_talonario_boleto',
+    ),
+
     # API
     path('api/verificar-qr/<uuid:codigo_qr>/', views.verificar_qr, name='verificar_qr'),
 

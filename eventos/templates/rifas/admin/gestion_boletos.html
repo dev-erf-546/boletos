@@ -152,11 +152,30 @@
     </div>
 </div>
 
+<div class="alert alert-secondary d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+        <strong><i class="bi bi-printer"></i> Talonarios físicos (desde #{{ talonario_numero_minimo }})</strong><br>
+        <small class="text-muted">
+            Vendidos: {{ talonarios_vendidos_total }} |
+            Impresos: {{ talonarios_impresos }} |
+            Pendientes: {{ talonarios_pendientes_impresion }}
+        </small>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-dark btn-sm" id="btnImprimirSeleccionados" title="Imprimir boletos marcados">
+            <i class="bi bi-printer"></i> Imprimir seleccionados
+        </button>
+        <button type="button" class="btn btn-dark btn-sm" id="btnImprimirPendientes" title="Todos los vendidos pendientes de impresión">
+            <i class="bi bi-file-earmark-pdf"></i> Imprimir pendientes ({{ talonarios_pendientes_impresion }})
+        </button>
+    </div>
+</div>
+
 <!-- Panel de Filtros y Búsqueda -->
 <div class="filters-panel">
     <form method="get" id="filtroForm">
         <div class="row g-2 g-md-3">
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <label class="form-label"><i class="bi bi-search"></i> Búsqueda</label>
                 <input type="text" class="form-control" name="search" 
                        placeholder="Número, participante o teléfono..." 
@@ -172,6 +191,14 @@
                     <option value="E" {% if current_estado == 'E' %}selected{% endif %}>En Validación</option>
                 </select>
             </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label"><i class="bi bi-printer"></i> Talonario</label>
+                <select class="form-select" name="impresion">
+                    <option value="">Todos</option>
+                    <option value="pendiente" {% if current_impresion == 'pendiente' %}selected{% endif %}>Pendientes impresión</option>
+                    <option value="impreso" {% if current_impresion == 'impreso' %}selected{% endif %}>Ya impresos</option>
+                </select>
+            </div>
             <div class="col-3 col-md-2">
                 <label class="form-label">Desde</label>
                 <input type="number" class="form-control" name="inicio" 
@@ -182,13 +209,13 @@
                 <input type="number" class="form-control" name="fin" 
                        placeholder="#" min="1" value="{{ current_fin }}">
             </div>
-            <div class="col-12 col-md-2 d-flex align-items-end">
+            <div class="col-12 col-md-1 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-funnel-fill"></i> Filtrar
                 </button>
             </div>
         </div>
-        {% if current_search or current_estado or current_inicio or current_fin %}
+        {% if current_search or current_estado or current_inicio or current_fin or current_impresion %}
         <div class="mt-2">
             <a href="{% url 'rifas:admin_gestion_boletos' rifa.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-x-circle"></i> Limpiar Filtros
@@ -220,6 +247,9 @@
             <table class="table table-hover table-bordered mb-0 table-boleto">
                 <thead class="table-light">
                     <tr>
+                        <th class="text-center" style="width: 2.5rem;">
+                            <input type="checkbox" class="form-check-input" id="checkTodosTalonarios" title="Seleccionar vendidos imprimibles">
+                        </th>
                         <th>Número</th>
                         <th>Estado</th>
                         <th>Participante</th>
@@ -230,6 +260,15 @@
                 <tbody>
                     {% for boleto in boletos %}
                     <tr class="boleto-row {% if boleto.estado == 'V' %}table-success{% elif boleto.estado == 'R' %}table-warning{% elif boleto.estado == 'E' %}table-info{% endif %}">
+                        <td class="text-center align-middle">
+                            {% if boleto.estado == 'V' and boleto.numero >= talonario_numero_minimo and boleto.participante %}
+                            <input type="checkbox"
+                                   class="form-check-input talonario-check"
+                                   value="{{ boleto.id }}"
+                                   data-numero="{{ boleto.numero }}"
+                                   data-impreso="{% if boleto.impreso_fisico %}1{% else %}0{% endif %}">
+                            {% endif %}
+                        </td>
                         <td>
                             <strong class="fs-5">#{{ boleto.numero }}</strong>
                         </td>
@@ -251,6 +290,16 @@
                                 <span class="badge bg-danger badge-estado">Vendido</span>
                                 {% if boleto.fecha_venta %}
                                 <br><small class="text-muted">{{ boleto.fecha_venta|date:"d/m/Y H:i" }}</small>
+                                {% endif %}
+                                {% if boleto.numero >= talonario_numero_minimo %}
+                                    {% if boleto.impreso_fisico %}
+                                    <br><span class="badge bg-secondary mt-1"><i class="bi bi-printer-fill"></i> Impreso</span>
+                                    {% if boleto.fecha_impresion_fisica %}
+                                    <br><small class="text-muted">{{ boleto.fecha_impresion_fisica|date:"d/m/Y H:i" }}</small>
+                                    {% endif %}
+                                    {% else %}
+                                    <br><span class="badge bg-light text-dark border mt-1">Pendiente impresión</span>
+                                    {% endif %}
                                 {% endif %}
                             {% elif boleto.estado == 'E' %}
                                 <span class="badge bg-info badge-estado">En Validación</span>
@@ -327,6 +376,24 @@
                                     </button>
                                 {% endif %}
                                 
+                                {% if boleto.estado == 'V' and boleto.numero >= talonario_numero_minimo and boleto.participante %}
+                                    {% if boleto.impreso_fisico %}
+                                    <a class="btn btn-outline-secondary btn-action"
+                                       href="{% url 'rifas:imprimir_talonario_boleto' boleto.id %}?reimprimir=1"
+                                       target="_blank"
+                                       title="Reimprimir talonario físico">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                    {% else %}
+                                    <a class="btn btn-outline-dark btn-action"
+                                       href="{% url 'rifas:imprimir_talonario_boleto' boleto.id %}"
+                                       target="_blank"
+                                       title="Imprimir talonario físico">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                    {% endif %}
+                                {% endif %}
+
                                 {% if boleto.estado == 'V' and boleto.qr and boleto.qr.imagen_qr %}
                                     <button class="btn btn-info btn-action ver-qr-btn" 
                                         data-qr-url="{{ boleto.qr.imagen_qr.url }}"
@@ -341,7 +408,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-5">
+                        <td colspan="6" class="text-center py-5">
                             <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
                             <p class="text-muted mt-3">No se encontraron boletos con los filtros aplicados</p>
                         </td>
@@ -359,10 +426,10 @@
             <ul class="pagination justify-content-center mb-0">
                 {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page=1{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Primera</a>
+                        <a class="page-link" href="?page=1{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_impresion %}&impresion={{ current_impresion }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Primera</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Anterior</a>
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_impresion %}&impresion={{ current_impresion }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Anterior</a>
                     </li>
                 {% endif %}
                 
@@ -374,10 +441,10 @@
                 
                 {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Siguiente</a>
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_impresion %}&impresion={{ current_impresion }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Siguiente</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Última</a>
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_estado %}&estado={{ current_estado }}{% endif %}{% if current_impresion %}&impresion={{ current_impresion }}{% endif %}{% if current_inicio %}&inicio={{ current_inicio }}{% endif %}{% if current_fin %}&fin={{ current_fin }}{% endif %}">Última</a>
                     </li>
                 {% endif %}
             </ul>
@@ -385,6 +452,13 @@
     </div>
     {% endif %}
 </div>
+
+<form method="post" action="{% url 'rifas:imprimir_talonarios_pdf' rifa.pk %}" target="_blank" id="formImprimirTalonarios" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="modo" id="talonarioModo" value="seleccionados">
+    <input type="hidden" name="boleto_ids" id="talonarioBoletoIds" value="">
+    <input type="hidden" name="permitir_reimpresion" id="talonarioPermitirReimpresion" value="0">
+</form>
 
 <!-- Modal para Asignar Boleto -->
 <div class="modal fade" id="asignarModal" tabindex="-1" aria-hidden="true">
@@ -1293,6 +1367,74 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Enlace copiado al portapapeles');
         }
     });
+
+    // --- Talonarios físicos (PDF) ---
+    const formTalonarios = document.getElementById('formImprimirTalonarios');
+    const inputTalonarioIds = document.getElementById('talonarioBoletoIds');
+    const inputTalonarioModo = document.getElementById('talonarioModo');
+    const inputTalonarioReimpresion = document.getElementById('talonarioPermitirReimpresion');
+
+    function obtenerChecksTalonario() {
+        return Array.from(document.querySelectorAll('.talonario-check'));
+    }
+
+    function enviarFormularioTalonarios(modo, ids, permitirReimpresion) {
+        inputTalonarioModo.value = modo;
+        inputTalonarioIds.value = ids.join(',');
+        inputTalonarioReimpresion.value = permitirReimpresion ? '1' : '0';
+        formTalonarios.submit();
+        setTimeout(function() { window.location.reload(); }, 1500);
+    }
+
+    const checkTodosTalonarios = document.getElementById('checkTodosTalonarios');
+    if (checkTodosTalonarios) {
+        checkTodosTalonarios.addEventListener('change', function() {
+            obtenerChecksTalonario().forEach(function(cb) {
+                cb.checked = checkTodosTalonarios.checked;
+            });
+        });
+    }
+
+    const btnImprimirSeleccionados = document.getElementById('btnImprimirSeleccionados');
+    if (btnImprimirSeleccionados) {
+        btnImprimirSeleccionados.addEventListener('click', function() {
+            let seleccionados = obtenerChecksTalonario().filter(function(cb) { return cb.checked; });
+            if (!seleccionados.length) {
+                alert('Seleccione al menos un boleto vendido desde #{{ talonario_numero_minimo }}.');
+                return;
+            }
+            const impresos = seleccionados.filter(function(cb) { return cb.dataset.impreso === '1'; });
+            let permitirReimpresion = false;
+            if (impresos.length) {
+                permitirReimpresion = confirm(
+                    impresos.length + ' boleto(s) ya fueron impresos. ¿Incluirlos en la reimpresión?'
+                );
+                if (!permitirReimpresion) {
+                    seleccionados = seleccionados.filter(function(cb) { return cb.dataset.impreso !== '1'; });
+                }
+            }
+            const ids = seleccionados.map(function(cb) { return cb.value; });
+            if (!ids.length) {
+                alert('No hay boletos pendientes de impresión en la selección.');
+                return;
+            }
+            if (!confirm('¿Generar PDF con ' + ids.length + ' talonario(s)?')) return;
+            enviarFormularioTalonarios('seleccionados', ids, permitirReimpresion);
+        });
+    }
+
+    const btnImprimirPendientes = document.getElementById('btnImprimirPendientes');
+    if (btnImprimirPendientes) {
+        btnImprimirPendientes.addEventListener('click', function() {
+            const pendientes = {{ talonarios_pendientes_impresion }};
+            if (!pendientes) {
+                alert('No hay talonarios pendientes de impresión.');
+                return;
+            }
+            if (!confirm('¿Generar PDF con ' + pendientes + ' talonario(s) pendientes?')) return;
+            enviarFormularioTalonarios('pendientes', [], false);
+        });
+    }
 });
 </script>
 {% endblock %}

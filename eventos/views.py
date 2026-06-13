@@ -50,8 +50,11 @@ from .forms import (
 from django.contrib.auth.models import User
 
 from .utils import generar_qr_boleto
+from .talonario_pdf import TalonarioConfig, generar_pdf_talonarios
 
 logger = logging.getLogger(__name__)
+
+TALONARIO_NUMERO_MINIMO = 2001
 
 MENSAJE_BOLETOS_DIGITALES_PENDIENTES = (
     'No hay boletos generados aun, pide a tu administrador de ventas genere tus boletos digitales.'
@@ -570,6 +573,21 @@ class AdminGestionBoletosView(StaffRequiredMixin, ListView):
                 Q(participante__nombre_completo__icontains=search) |
                 Q(participante__telefono__icontains=search)
             )
+
+        impresion = self.request.GET.get('impresion')
+        if impresion == 'pendiente':
+            boletos = boletos.filter(
+                estado='V',
+                numero__gte=TALONARIO_NUMERO_MINIMO,
+                impreso_fisico=False,
+                participante__isnull=False,
+            )
+        elif impresion == 'impreso':
+            boletos = boletos.filter(
+                estado='V',
+                numero__gte=TALONARIO_NUMERO_MINIMO,
+                impreso_fisico=True,
+            )
         
         return boletos.order_by('numero')
     
@@ -605,6 +623,17 @@ class AdminGestionBoletosView(StaffRequiredMixin, ListView):
             'current_search': self.request.GET.get('search', ''),
             'current_inicio': self.request.GET.get('inicio', ''),
             'current_fin': self.request.GET.get('fin', ''),
+            'current_impresion': self.request.GET.get('impresion', ''),
+            'talonario_numero_minimo': TALONARIO_NUMERO_MINIMO,
+            'talonarios_vendidos_total': rifa.boletos.filter(
+                estado='V', numero__gte=TALONARIO_NUMERO_MINIMO
+            ).count(),
+            'talonarios_impresos': rifa.boletos.filter(
+                estado='V', numero__gte=TALONARIO_NUMERO_MINIMO, impreso_fisico=True
+            ).count(),
+            'talonarios_pendientes_impresion': rifa.boletos.filter(
+                estado='V', numero__gte=TALONARIO_NUMERO_MINIMO, impreso_fisico=False
+            ).count(),
         })
         
         return context
@@ -1747,6 +1776,138 @@ def boletos_descarga_pdf(request, token):
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="lote_boletos_{lote.token}.pdf"'
     return response
+
+
+def _queryset_talonarios_imprimibles(rifa, boleto_ids=None, solo_no_impresos=True):
+    qs = (
+        Boleto.objects.filter(
+            rifa=rifa,
+            estado='V',
+            numero__gte=TALONARIO_NUMERO_MINIMO,
+            participante__isnull=False,
+        )
+        .select_related('participante', 'rifa')
+        .order_by('numero')
+    )
+    if solo_no_impresos:
+        qs = qs.filter(impreso_fisico=False)
+    if boleto_ids is not None:
+        qs = qs.filter(pk__in=boleto_ids)
+    return qs
+
+
+def _respuesta_pdf_talonarios(request, rifa, boletos, marcar_impresos=True):
+    if not boletos:
+        messages.error(
+            request,
+            f'No hay boletos vendidos desde el #{TALONARIO_NUMERO_MINIMO} '
+            'pendientes de impresión con los criterios seleccionados.',
+        )
+        return redirect('rifas:admin_gestion_boletos', rifa_id=rifa.pk)
+
+    try:
+        pdf_bytes = generar_pdf_talonarios(boletos, TalonarioConfig())
+    except Exception as exc:
+        logger.exception('Error generando PDF de talonarios')
+        messages.error(request, f'No se pudo generar el PDF: {exc}')
+        return redirect('rifas:admin_gestion_boletos', rifa_id=rifa.pk)
+
+    if marcar_impresos:
+        ahora = timezone.now()
+        with transaction.atomic():
+            Boleto.objects.filter(pk__in=[b.pk for b in boletos]).update(
+                impreso_fisico=True,
+                fecha_impresion_fisica=ahora,
+            )
+
+    stamp = timezone.now().strftime('%Y%m%d_%H%M')
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'attachment; filename="talonarios_rifa_{rifa.pk}_{stamp}.pdf"'
+    )
+    return response
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def imprimir_talonario_boleto(request, boleto_id):
+    """Descarga PDF con un solo talonario físico."""
+    boleto = get_object_or_404(
+        Boleto.objects.select_related('participante', 'rifa'),
+        pk=boleto_id,
+    )
+    if boleto.estado != 'V':
+        messages.error(request, 'Solo se pueden imprimir boletos vendidos.')
+        return redirect('rifas:admin_gestion_boletos', rifa_id=boleto.rifa_id)
+    if boleto.numero < TALONARIO_NUMERO_MINIMO:
+        messages.error(
+            request,
+            f'Solo aplica para boletos desde el #{TALONARIO_NUMERO_MINIMO}.',
+        )
+        return redirect('rifas:admin_gestion_boletos', rifa_id=boleto.rifa_id)
+    if not boleto.participante:
+        messages.error(request, 'El boleto no tiene participante asignado.')
+        return redirect('rifas:admin_gestion_boletos', rifa_id=boleto.rifa_id)
+    if boleto.impreso_fisico and request.GET.get('reimprimir') != '1':
+        messages.warning(
+            request,
+            f'El boleto #{boleto.numero} ya fue impreso. '
+            'Use reimprimir=1 si desea generarlo de nuevo.',
+        )
+        return redirect('rifas:admin_gestion_boletos', rifa_id=boleto.rifa_id)
+
+    return _respuesta_pdf_talonarios(request, boleto.rifa, [boleto])
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def imprimir_talonarios_pdf(request, rifa_id):
+    """
+    Genera PDF de talonarios físicos.
+    modos POST:
+      - pendientes: todos vendidos >= 2001 sin imprimir
+      - seleccionados: lista en boleto_ids (coma separada)
+    """
+    rifa = get_object_or_404(Rifa, pk=rifa_id)
+    modo = request.POST.get('modo', 'seleccionados')
+    permitir_reimpresion = request.POST.get('permitir_reimpresion') == '1'
+
+    if modo == 'pendientes':
+        boletos = list(
+            _queryset_talonarios_imprimibles(
+                rifa,
+                solo_no_impresos=not permitir_reimpresion,
+            )
+        )
+    else:
+        raw_ids = request.POST.get('boleto_ids', '')
+        try:
+            boleto_ids = [int(x.strip()) for x in raw_ids.split(',') if x.strip()]
+        except ValueError:
+            messages.error(request, 'Lista de boletos inválida.')
+            return redirect('rifas:admin_gestion_boletos', rifa_id=rifa.pk)
+
+        if not boleto_ids:
+            messages.error(request, 'Seleccione al menos un boleto vendido.')
+            return redirect('rifas:admin_gestion_boletos', rifa_id=rifa.pk)
+
+        boletos = list(
+            _queryset_talonarios_imprimibles(
+                rifa,
+                boleto_ids=boleto_ids,
+                solo_no_impresos=not permitir_reimpresion,
+            )
+        )
+        if len(boletos) != len(set(boleto_ids)):
+            messages.warning(
+                request,
+                f'Algunos boletos no aplican (vendidos, desde #{TALONARIO_NUMERO_MINIMO}, '
+                'con participante y no impresos salvo reimpresión).',
+            )
+
+    return _respuesta_pdf_talonarios(request, rifa, boletos)
+
 
 # Vista protegida para servir archivos de storage
 @login_required

@@ -63,6 +63,8 @@ class Boleto(models.Model):
         blank=True,
         related_name='boletos',
     )
+    impreso_fisico = models.BooleanField(default=False)
+    fecha_impresion_fisica = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         unique_together = ('rifa', 'numero')
