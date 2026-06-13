@@ -241,7 +241,8 @@ ACCOUNT_LOGOUT_ON_GET = True  # Cierra sesión con solo visitar /accounts/logout
 # Modificado: 2026-03-17 22:10:50 - Configuración de redirect al admin-panel después del login
 # URLs de redirección - Solo se usa el admin de Django, no allauth
 LOGIN_REDIRECT_URL = '/admin-panel/'  # Redirigir al panel admin después del login
-LOGOUT_REDIRECT_URL = '/'  # Redirigir al inicio después del logout
+LOGIN_URL = '/admin/login/'
+LOGOUT_REDIRECT_URL = '/admin/login/'  # Redirigir al login después del logout
 
 # Adaptador personalizado de allauth deshabilitado (ya no se usa allauth)
 # ACCOUNT_ADAPTER = 'eventos.adapters.CustomAccountAdapter'

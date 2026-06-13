@@ -814,7 +814,7 @@ const ticketsPerPage = 200; // Boletos por página para mejor rendimiento
 // Obtener número de WhatsApp según rango de boletos
 function getWhatsappNumberForTicket(numeroBoleto) {
     if (numeroBoleto >= 1 && numeroBoleto <= 250) {
-        return "529933933115"; // Vendedor 1
+        return "529933933115"; // Vendedor 1 Erika
     } else if (numeroBoleto >= 251 && numeroBoleto <= 500) {
         return "529931832904"; // Vendedor 2
     } else if (numeroBoleto >= 501 && numeroBoleto <= 750) {
@@ -867,7 +867,35 @@ function getWhatsappNumberForTicket(numeroBoleto) {
         return "529361104359"; // Vendedor 4 mari josue
     } else if (numeroBoleto >= 1961 && numeroBoleto <= 2000) {
         return "529931577024"; // Vendedor 8 Sarahi (reemplaza V7)
+    } else if (numeroBoleto >= 2001 && numeroBoleto <= 2040) {
+        return "529361312941"; // Orlando
+    } else if (numeroBoleto >= 2041 && numeroBoleto <= 2080) {
+        return "529931832904"; // Vendedor 2 Karina
+    } else if (numeroBoleto >= 2081 && numeroBoleto <= 2120) {
+        return "529931778227"; // Vendedor 3 Fernanda
+    } else if (numeroBoleto >= 2121 && numeroBoleto <= 2160) {
+        return "529361104359"; // Vendedor 4 mari josue
+    } else if (numeroBoleto >= 2161 && numeroBoleto <= 2200) {
+        return "529361010013"; // Vendedor 5
+    } else if (numeroBoleto >= 2201 && numeroBoleto <= 2240) {
+        return "529932794832"; // Vendedor 7 pulsarmex
+    } else if (numeroBoleto >= 2241 && numeroBoleto <= 2280) {
+        return "529931577024"; // Vendedor 8 Sarahi
+    } else if (numeroBoleto >= 2281 && numeroBoleto <= 2320) {
+        return "529361312941"; // Orlando
+    } else if (numeroBoleto >= 2321 && numeroBoleto <= 2360) {
+        return "529361312941"; // Orlando
+    } else if (numeroBoleto >= 2361 && numeroBoleto <= 2400) {
+        return "529931832904"; // Vendedor 2 Karina
+    } else if (numeroBoleto >= 2401 && numeroBoleto <= 2440) {
+        return "529931778227"; // Vendedor 3 Fernanda
+    } else if (numeroBoleto >= 2441 && numeroBoleto <= 2480) {
+        return "529361104359"; // Vendedor 4 mari josue
+    } else if (numeroBoleto >= 2481 && numeroBoleto <= 2500) {
+        return "529361010013"; // Vendedor 5
     }
+
+    // Número por defecto (por si acaso)
     return "529933933115";
 }
 
