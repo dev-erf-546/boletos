@@ -1,0 +1,48 @@
+{% extends 'rifas/base.html' %}
+
+{% block title %}Ventas finalizadas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ventas-finalizadas-wrap {
+        min-height: calc(100vh - 120px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+
+    .ventas-finalizadas-card {
+        max-width: 520px;
+        width: 100%;
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .ventas-finalizadas-icon {
+        font-size: 3.5rem;
+        color: #6c757d;
+    }
+
+    .ventas-finalizadas-titulo {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #212529;
+        line-height: 1.35;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ventas-finalizadas-wrap">
+    <div class="card ventas-finalizadas-card text-center">
+        <div class="card-body p-5">
+            <i class="bi bi-ticket-perforated ventas-finalizadas-icon" aria-hidden="true"></i>
+            <h1 class="ventas-finalizadas-titulo mt-4 mb-0">
+                Las ventas han finalizado
+            </h1>
+        </div>
+    </div>
+</div>
+{% endblock %}

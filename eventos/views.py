@@ -99,6 +99,11 @@ class RifaListView(ListView):
     model = Rifa
     template_name = 'rifas/listado.html'
     context_object_name = 'rifas'
+
+    def get_template_names(self):
+        if not Rifa.objects.filter(activa=True).exists():
+            return ['rifas/ventas_finalizadas.html']
+        return [self.template_name]
     
     def get_queryset(self):
         return Rifa.objects.filter(activa=True).order_by('fecha_sorteo')
@@ -107,10 +112,18 @@ class RifaDetailView(DetailView):
     model = Rifa
     template_name = 'rifas/detalle.html'
     context_object_name = 'rifa'
+
+    def get_template_names(self):
+        if self.object and not self.object.activa:
+            return ['rifas/ventas_finalizadas.html']
+        return [self.template_name]
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         rifa = self.object
+
+        if not rifa.activa:
+            return context
         
         # Estadísticas detalladas
         boletos_vendidos = rifa.boletos.filter(estado='V').count()
